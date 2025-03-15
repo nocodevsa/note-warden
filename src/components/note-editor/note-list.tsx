@@ -5,10 +5,12 @@ import { cn } from "@/lib/utils";
 import { Eye, LayoutGrid, Pin, Plus } from "lucide-react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useState } from "react";
+import { toast } from "sonner";
 
 export function NoteList() {
-  const { notes, folders, activeNoteId, activeFolderId, setActiveNoteId, createNote } = useNotes();
+  const { notes, folders, activeNoteId, activeFolderId, setActiveNoteId, createNote, updateNote } = useNotes();
   const [viewType, setViewType] = useState<"list" | "grid">("list");
+  const [draggingNoteId, setDraggingNoteId] = useState<string | null>(null);
   
   let filteredNotes = activeFolderId === null 
     ? notes.filter(note => !note.folderId) 
@@ -22,6 +24,15 @@ export function NoteList() {
   });
   
   const activeFolder = folders.find(folder => folder.id === activeFolderId);
+  
+  const handleDragStart = (e: React.DragEvent, noteId: string) => {
+    e.dataTransfer.setData("noteId", noteId);
+    setDraggingNoteId(noteId);
+  };
+  
+  const handleDragEnd = () => {
+    setDraggingNoteId(null);
+  };
   
   return (
     <div className="h-full flex flex-col border-r border-border">
@@ -67,9 +78,13 @@ export function NoteList() {
                 className={cn(
                   "p-2 rounded-md cursor-pointer",
                   activeNoteId === note.id ? "bg-accent" : "hover:bg-accent/50",
+                  draggingNoteId === note.id ? "opacity-50" : "opacity-100",
                   "transition-colors"
                 )}
                 onClick={() => setActiveNoteId(note.id)}
+                draggable
+                onDragStart={(e) => handleDragStart(e, note.id)}
+                onDragEnd={handleDragEnd}
               >
                 <div className="flex items-center justify-between mb-1">
                   <h3 className="font-medium truncate">
@@ -94,9 +109,13 @@ export function NoteList() {
                 className={cn(
                   "p-3 rounded-md cursor-pointer border",
                   activeNoteId === note.id ? "bg-accent border-primary" : "hover:bg-accent/50 border-border",
+                  draggingNoteId === note.id ? "opacity-50" : "opacity-100",
                   "transition-colors h-32 flex flex-col"
                 )}
                 onClick={() => setActiveNoteId(note.id)}
+                draggable
+                onDragStart={(e) => handleDragStart(e, note.id)}
+                onDragEnd={handleDragEnd}
               >
                 <div className="flex items-center justify-between mb-1">
                   <h3 className="font-medium truncate">

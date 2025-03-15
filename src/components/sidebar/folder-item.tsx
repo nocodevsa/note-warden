@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Input } from "@/components/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 
 interface FolderItemProps {
   id: string;
@@ -16,11 +17,12 @@ interface FolderItemProps {
 }
 
 export function FolderItem({ id, name, isActive }: FolderItemProps) {
-  const { setActiveFolderId, updateFolder, deleteFolder, createNote, notes } = useNotes();
+  const { setActiveFolderId, updateFolder, deleteFolder, createNote, notes, updateNote } = useNotes();
   const [isOpen, setIsOpen] = useState(false);
   const [isRenaming, setIsRenaming] = useState(false);
   const [newName, setNewName] = useState(name);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
   
   const folderNotes = notes.filter(note => note.folderId === id);
   const hasNotes = folderNotes.length > 0;
@@ -35,6 +37,27 @@ export function FolderItem({ id, name, isActive }: FolderItemProps) {
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       handleRename();
+    }
+  };
+  
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  };
+  
+  const handleDragLeave = () => {
+    setIsDragOver(false);
+  };
+  
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    
+    const noteId = e.dataTransfer.getData("noteId");
+    if (noteId) {
+      // Move note to this folder
+      updateNote(noteId, { folderId: id });
+      toast(`Note moved to "${name}" folder`);
     }
   };
 
@@ -57,9 +80,13 @@ export function FolderItem({ id, name, isActive }: FolderItemProps) {
           className={cn(
             "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm w-full cursor-pointer",
             isActive && "bg-accent", 
+            isDragOver && "bg-accent/70 border-2 border-dashed border-primary",
             "hover:bg-accent/50 transition-colors"
           )}
           onClick={() => setActiveFolderId(id)}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
         >
           {isOpen ? <FolderOpen size={16} /> : <Folder size={16} />}
           <span className="flex-grow truncate">{name}</span>
