@@ -147,7 +147,7 @@
   
   /* Specific styles for internal note links */
   .note-content a[href^="#note-link-"] {
-    @apply bg-note-highlight px-2 py-0.5 rounded no-underline text-note-accent font-medium hover:bg-note-accent hover:text-note-accent-foreground transition-colors;
+    @apply bg-note-highlight px-2 py-0.5 rounded no-underline text-note-accent font-medium hover:bg-note-accent hover:text-white transition-colors;
   }
   
   /* Style for create note links */

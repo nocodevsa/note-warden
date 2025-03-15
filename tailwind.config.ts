@@ -69,6 +69,7 @@ export default {
         },
         note: {
           'accent': '#6a5acd',
+          'accent-foreground': '#FFFFFF', // Added the missing color
           'accent-hover': '#5a4abf',
           'muted': '#f4f0ff',
           'highlight': '#e6e0ff'
