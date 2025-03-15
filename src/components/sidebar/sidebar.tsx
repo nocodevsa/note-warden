@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,46 +13,42 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { FolderColorPicker } from "./folder-color-picker";
 import { FolderIconPicker } from "./folder-icon-picker";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-  DropdownMenuLabel
-} from "@/components/ui/dropdown-menu";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 interface SidebarProps {
   collapsed: boolean;
   onCollapse: () => void;
 }
-
-export function Sidebar({ collapsed, onCollapse }: SidebarProps) {
-  const { folders, notes, createNote, createFolder, activeNoteId, activeFolderId, setActiveFolderId, setActiveNoteId, updateFolder } = useNotes();
+export function Sidebar({
+  collapsed,
+  onCollapse
+}: SidebarProps) {
+  const {
+    folders,
+    notes,
+    createNote,
+    createFolder,
+    activeNoteId,
+    activeFolderId,
+    setActiveFolderId,
+    setActiveNoteId,
+    updateFolder
+  } = useNotes();
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
   const [folderColor, setFolderColor] = useState("");
   const [folderIcon, setFolderIcon] = useState("folder");
   const [syncProvider, setSyncProvider] = useState<string>("none");
   const [activeSidebarTab, setActiveSidebarTab] = useState("folders");
-  
   const pinnedNotes = notes.filter(note => note.isPinned);
   const allNotes = activeFolderId === null ? notes.filter(note => !note.folderId) : notes.filter(note => note.folderId === activeFolderId);
-  
+
   // Get root folders (no parent ID)
   const rootFolders = folders.filter(folder => !folder.parentId);
-
   const handleCreateFolder = () => {
     if (newFolderName.trim()) {
       const folderId = createFolder(newFolderName.trim());
-      
+
       // Apply customizations
       if (folderColor || folderIcon !== "folder") {
         updateFolder(folderId, newFolderName.trim(), {
@@ -61,79 +56,46 @@ export function Sidebar({ collapsed, onCollapse }: SidebarProps) {
           icon: folderIcon
         });
       }
-      
       setNewFolderName("");
       setFolderColor("");
       setFolderIcon("folder");
       setIsCreatingFolder(false);
     }
   };
-
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       handleCreateFolder();
     }
   };
-
   const handleSyncChange = (provider: string) => {
     setSyncProvider(provider);
     toast.success(`Sync provider changed to ${provider === "none" ? "none" : provider}`);
     // In a real app, we would implement actual sync functionality here
   };
-
   if (collapsed) {
-    return (
-      <div className="h-screen w-12 bg-sidebar border-r border-sidebar-border flex flex-col items-center py-4 gap-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onCollapse}
-          aria-label="Expand sidebar"
-        >
+    return <div className="h-screen w-12 bg-sidebar border-r border-sidebar-border flex flex-col items-center py-4 gap-4">
+        <Button variant="ghost" size="icon" onClick={onCollapse} aria-label="Expand sidebar">
           <PanelLeft size={20} />
         </Button>
         <Separator className="w-8" />
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => createNote()}
-          className="mt-2"
-          aria-label="Create new note"
-        >
+        <Button variant="ghost" size="icon" onClick={() => createNote()} className="mt-2" aria-label="Create new note">
           <Plus size={20} />
         </Button>
-      </div>
-    );
+      </div>;
   }
-
-  return (
-    <div className="h-screen w-64 bg-sidebar border-r border-sidebar-border flex flex-col">
+  return <div className="h-screen w-64 bg-sidebar border-r border-sidebar-border flex flex-col">
       <div className="p-4 flex items-center justify-between">
-        <h1 className="font-semibold text-lg text-sidebar-foreground">Note Warden</h1>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onCollapse}
-          aria-label="Collapse sidebar"
-        >
+        <h1 className="font-semibold text-lg text-sidebar-foreground">Noteflow</h1>
+        <Button variant="ghost" size="icon" onClick={onCollapse} aria-label="Collapse sidebar">
           <ChevronLeft size={18} />
         </Button>
       </div>
       
       <div className="p-2 flex gap-2">
-        <Button 
-          onClick={() => createNote()} 
-          className="flex-1"
-          variant="default"
-        >
+        <Button onClick={() => createNote()} className="flex-1" variant="default">
           <Plus size={16} className="mr-2" /> New Note
         </Button>
-        <Button 
-          variant="outline" 
-          size="icon"
-          onClick={() => setIsCreatingFolder(true)}
-          aria-label="Create new folder"
-        >
+        <Button variant="outline" size="icon" onClick={() => setIsCreatingFolder(true)} aria-label="Create new folder">
           <FolderPlus size={16} />
         </Button>
       </div>
@@ -146,57 +108,29 @@ export function Sidebar({ collapsed, onCollapse }: SidebarProps) {
         </TabsList>
         
         <TabsContent value="folders" className="flex-1 overflow-y-auto px-2 space-y-1">
-          <Button
-            variant="ghost"
-            className={cn(
-              "w-full justify-start text-sm font-medium", 
-              activeFolderId === null && !activeNoteId && "bg-sidebar-accent"
-            )}
-            onClick={() => {
-              setActiveFolderId(null);
-              setActiveNoteId(null);
-            }}
-          >
+          <Button variant="ghost" className={cn("w-full justify-start text-sm font-medium", activeFolderId === null && !activeNoteId && "bg-sidebar-accent")} onClick={() => {
+          setActiveFolderId(null);
+          setActiveNoteId(null);
+        }}>
             <Files size={16} className="mr-2" />
             All Notes
           </Button>
           
-          {pinnedNotes.length > 0 && (
-            <div className="mt-2">
+          {pinnedNotes.length > 0 && <div className="mt-2">
               <div className="flex items-center px-2 mb-1">
                 <Star size={14} className="mr-2 text-muted-foreground" />
                 <span className="text-xs text-muted-foreground">Pinned</span>
               </div>
               <div className="pl-6 space-y-1">
-                {pinnedNotes.map(note => (
-                  <div 
-                    key={note.id}
-                    className={cn(
-                      "text-sm px-2 py-1 rounded-md cursor-pointer truncate",
-                      activeNoteId === note.id ? "bg-sidebar-accent font-medium" : "hover:bg-sidebar-accent/50",
-                      "transition-colors"
-                    )}
-                    onClick={() => setActiveNoteId(note.id)}
-                  >
+                {pinnedNotes.map(note => <div key={note.id} className={cn("text-sm px-2 py-1 rounded-md cursor-pointer truncate", activeNoteId === note.id ? "bg-sidebar-accent font-medium" : "hover:bg-sidebar-accent/50", "transition-colors")} onClick={() => setActiveNoteId(note.id)}>
                     {note.title || "Untitled Note"}
-                  </div>
-                ))}
+                  </div>)}
               </div>
-            </div>
-          )}
+            </div>}
           
           <div className="mt-4">
             <div className="text-xs font-medium text-muted-foreground px-2 mb-1">FOLDERS</div>
-            {rootFolders.map(folder => (
-              <FolderItem
-                key={folder.id}
-                id={folder.id}
-                name={folder.name}
-                isActive={activeFolderId === folder.id}
-                color={folder.color}
-                icon={folder.icon}
-              />
-            ))}
+            {rootFolders.map(folder => <FolderItem key={folder.id} id={folder.id} name={folder.name} isActive={activeFolderId === folder.id} color={folder.color} icon={folder.icon} />)}
           </div>
         </TabsContent>
         
@@ -224,24 +158,14 @@ export function Sidebar({ collapsed, onCollapse }: SidebarProps) {
         <TabsContent value="recent" className="flex-1 overflow-y-auto px-2">
           <div className="text-xs font-medium text-muted-foreground px-2 mb-2">RECENTLY EDITED</div>
           <div className="space-y-1">
-            {notes.slice(0, 10).map(note => (
-              <div 
-                key={note.id}
-                className={cn(
-                  "text-sm px-2 py-1.5 rounded-md cursor-pointer",
-                  activeNoteId === note.id ? "bg-sidebar-accent font-medium" : "hover:bg-sidebar-accent/50",
-                  "transition-colors"
-                )}
-                onClick={() => setActiveNoteId(note.id)}
-              >
+            {notes.slice(0, 10).map(note => <div key={note.id} className={cn("text-sm px-2 py-1.5 rounded-md cursor-pointer", activeNoteId === note.id ? "bg-sidebar-accent font-medium" : "hover:bg-sidebar-accent/50", "transition-colors")} onClick={() => setActiveNoteId(note.id)}>
                 <div className="flex justify-between items-center">
                   <span className="truncate">{note.title || "Untitled Note"}</span>
                   <span className="text-xs text-muted-foreground whitespace-nowrap ml-2">
                     {new Date(note.updatedAt).toLocaleDateString()}
                   </span>
                 </div>
-              </div>
-            ))}
+              </div>)}
           </div>
         </TabsContent>
       </Tabs>
@@ -272,10 +196,7 @@ export function Sidebar({ collapsed, onCollapse }: SidebarProps) {
           </DropdownMenuContent>
         </DropdownMenu>
         
-        <Select
-          value={syncProvider}
-          onValueChange={handleSyncChange}
-        >
+        <Select value={syncProvider} onValueChange={handleSyncChange}>
           <SelectTrigger className="w-[130px] h-9">
             <SelectValue placeholder="Sync: Off" />
           </SelectTrigger>
@@ -296,13 +217,7 @@ export function Sidebar({ collapsed, onCollapse }: SidebarProps) {
           </DialogHeader>
           
           <div className="grid gap-4 py-4">
-            <Input 
-              placeholder="Folder name" 
-              value={newFolderName} 
-              onChange={(e) => setNewFolderName(e.target.value)} 
-              autoFocus 
-              onKeyDown={handleKeyDown}
-            />
+            <Input placeholder="Folder name" value={newFolderName} onChange={e => setNewFolderName(e.target.value)} autoFocus onKeyDown={handleKeyDown} />
             
             <Tabs defaultValue="icon" className="w-full">
               <TabsList className="grid w-full grid-cols-2">
@@ -324,6 +239,5 @@ export function Sidebar({ collapsed, onCollapse }: SidebarProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
-  );
+    </div>;
 }
