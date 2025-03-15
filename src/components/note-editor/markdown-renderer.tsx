@@ -10,11 +10,11 @@ interface MarkdownRendererProps {
 
 function MarkdownRendererComponent({ content, className }: MarkdownRendererProps) {
   return (
-    <ReactMarkdown
-      className={cn("note-content prose dark:prose-invert max-w-full", className)}
-    >
-      {content}
-    </ReactMarkdown>
+    <div className={cn("note-content prose dark:prose-invert max-w-full", className)}>
+      <ReactMarkdown>
+        {content}
+      </ReactMarkdown>
+    </div>
   );
 }
 
