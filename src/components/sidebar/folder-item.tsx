@@ -1,36 +1,69 @@
 
 import { useState } from "react";
-import { ChevronRight, ChevronDown, Folder, FolderOpen, MoreVertical, Plus, Edit, Trash } from "lucide-react";
+import { ChevronRight, ChevronDown, FolderIcon, FolderOpen, MoreVertical, Plus, Edit, Trash, Palette } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNotes } from "@/context/notes-context";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { FolderColorPicker } from "./folder-color-picker";
+import { FolderIconPicker } from "./folder-icon-picker";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import * as LucideIcons from "lucide-react";
 
 interface FolderItemProps {
   id: string;
   name: string;
   isActive: boolean;
+  color?: string;
+  icon?: string;
+  depth?: number;
+  parentId?: string | null;
 }
 
-export function FolderItem({ id, name, isActive }: FolderItemProps) {
-  const { setActiveFolderId, updateFolder, deleteFolder, createNote, notes, updateNote } = useNotes();
+export function FolderItem({ id, name, isActive, color, icon, depth = 0, parentId }: FolderItemProps) {
+  const { setActiveFolderId, updateFolder, deleteFolder, createNote, notes, updateNote, folders, createFolder } = useNotes();
   const [isOpen, setIsOpen] = useState(false);
+  const [isCustomizing, setIsCustomizing] = useState(false);
   const [isRenaming, setIsRenaming] = useState(false);
   const [newName, setNewName] = useState(name);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
+  const [selectedColor, setSelectedColor] = useState(color || "");
+  const [selectedIcon, setSelectedIcon] = useState(icon || "folder");
   
   const folderNotes = notes.filter(note => note.folderId === id);
   const hasNotes = folderNotes.length > 0;
+  
+  // Find child folders
+  const childFolders = folders.filter(folder => folder.parentId === id);
+  const hasChildren = childFolders.length > 0;
 
   const handleRename = () => {
     if (newName.trim()) {
       updateFolder(id, newName.trim());
       setIsRenaming(false);
+    }
+  };
+
+  const handleCustomize = () => {
+    updateFolder(id, name, { 
+      color: selectedColor, 
+      icon: selectedIcon 
+    });
+    setIsCustomizing(false);
+    toast.success("Folder customized");
+  };
+
+  const handleCreateSubfolder = () => {
+    if (newFolderName.trim()) {
+      createFolder(newFolderName.trim(), id);
+      setNewFolderName("");
+      setIsOpen(true); // Open the folder to show the new subfolder
     }
   };
 
@@ -61,9 +94,16 @@ export function FolderItem({ id, name, isActive }: FolderItemProps) {
     }
   };
 
+  // Dynamically get the folder icon from Lucide icons
+  const FolderIconComponent = icon && LucideIcons[icon as keyof typeof LucideIcons] 
+    ? LucideIcons[icon as keyof typeof LucideIcons] 
+    : isOpen ? FolderOpen : FolderIcon;
+
   return (
     <div>
       <div className="flex items-center group">
+        <div style={{ width: depth * 12 }} /> {/* Indentation for nested folders */}
+        
         <Button
           variant="ghost"
           size="sm"
@@ -71,9 +111,9 @@ export function FolderItem({ id, name, isActive }: FolderItemProps) {
             "flex h-8 w-8 p-0 mr-1 data-[state=open]:bg-accent", 
             isActive && "bg-accent"
           )}
-          onClick={() => hasNotes && setIsOpen(!isOpen)}
+          onClick={() => (hasNotes || hasChildren) && setIsOpen(!isOpen)}
         >
-          {hasNotes && (isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />)}
+          {(hasNotes || hasChildren) && (isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />)}
         </Button>
         
         <div 
@@ -81,6 +121,7 @@ export function FolderItem({ id, name, isActive }: FolderItemProps) {
             "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm w-full cursor-pointer",
             isActive && "bg-accent", 
             isDragOver && "bg-accent/70 border-2 border-dashed border-primary",
+            color && `text-folder-${color}`,
             "hover:bg-accent/50 transition-colors"
           )}
           onClick={() => setActiveFolderId(id)}
@@ -88,7 +129,7 @@ export function FolderItem({ id, name, isActive }: FolderItemProps) {
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
         >
-          {isOpen ? <FolderOpen size={16} /> : <Folder size={16} />}
+          <FolderIconComponent size={16} className={color ? `text-folder-${color}` : ""} />
           <span className="flex-grow truncate">{name}</span>
           
           <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
@@ -120,6 +161,10 @@ export function FolderItem({ id, name, isActive }: FolderItemProps) {
                   <Edit size={14} className="mr-2" />
                   Rename
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setIsCustomizing(true)}>
+                  <Palette size={14} className="mr-2" />
+                  Customize
+                </DropdownMenuItem>
                 <DropdownMenuItem 
                   className="text-destructive focus:text-destructive"
                   onClick={() => setIsDeleteDialogOpen(true)}
@@ -133,8 +178,45 @@ export function FolderItem({ id, name, isActive }: FolderItemProps) {
         </div>
       </div>
       
-      {isOpen && hasNotes && (
+      {isOpen && (
         <div className="ml-8 pl-2 border-l-2 border-border mt-1">
+          {/* Add new subfolder input */}
+          <div className="py-1">
+            <div className="flex items-center gap-1">
+              <Input 
+                value={newFolderName}
+                onChange={(e) => setNewFolderName(e.target.value)}
+                placeholder="New subfolder..."
+                size={1}
+                className="h-7 text-xs"
+                onKeyDown={(e) => e.key === "Enter" && handleCreateSubfolder()}
+              />
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-7 w-7"
+                onClick={handleCreateSubfolder}
+              >
+                <Plus size={14} />
+              </Button>
+            </div>
+          </div>
+
+          {/* Child folders */}
+          {childFolders.map(folder => (
+            <FolderItem 
+              key={folder.id}
+              id={folder.id}
+              name={folder.name}
+              isActive={folder.id === id}
+              color={folder.color}
+              icon={folder.icon}
+              depth={depth + 1}
+              parentId={id}
+            />
+          ))}
+
+          {/* Notes in this folder */}
           {folderNotes.map(note => (
             <NoteLink key={note.id} id={note.id} title={note.title} />
           ))}
@@ -155,6 +237,32 @@ export function FolderItem({ id, name, isActive }: FolderItemProps) {
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsRenaming(false)}>Cancel</Button>
             <Button onClick={handleRename}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      <Dialog open={isCustomizing} onOpenChange={setIsCustomizing}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Customize Folder</DialogTitle>
+          </DialogHeader>
+          
+          <Tabs defaultValue="icon" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="icon">Icon</TabsTrigger>
+              <TabsTrigger value="color">Color</TabsTrigger>
+            </TabsList>
+            <TabsContent value="icon" className="pt-4">
+              <FolderIconPicker value={selectedIcon} onChange={setSelectedIcon} />
+            </TabsContent>
+            <TabsContent value="color" className="pt-4">
+              <FolderColorPicker value={selectedColor} onChange={setSelectedColor} />
+            </TabsContent>
+          </Tabs>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCustomizing(false)}>Cancel</Button>
+            <Button onClick={handleCustomize}>Apply</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -186,6 +294,10 @@ function NoteLink({ id, title }: { id: string; title: string }) {
   const { activeNoteId, setActiveNoteId } = useNotes();
   const isActive = activeNoteId === id;
   
+  const handleDragStart = (e: React.DragEvent) => {
+    e.dataTransfer.setData("noteId", id);
+  };
+  
   return (
     <div 
       className={cn(
@@ -194,6 +306,8 @@ function NoteLink({ id, title }: { id: string; title: string }) {
         "transition-colors"
       )}
       onClick={() => setActiveNoteId(id)}
+      draggable
+      onDragStart={handleDragStart}
     >
       {title || "Untitled Note"}
     </div>

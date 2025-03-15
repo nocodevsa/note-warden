@@ -5,21 +5,51 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { MarkdownRenderer } from "./markdown-renderer";
-import { NoteType } from "@/lib/types";
-import { Edit, Eye, Save, Trash, Pin, PinOff, ArrowLeft, Image, Link, Bold, Italic, List, Code, Table } from "lucide-react";
+import { Edit, Eye, Save, Trash, Pin, PinOff, ArrowLeft, Image, Link, Bold, Italic, List, Code, Table, Lock, Globe, History, ExternalLink, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "sonner";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
-export function NoteView() {
-  const { notes, activeNoteId, updateNote, isEditing, setIsEditing, deleteNote, togglePinned, setActiveNoteId } = useNotes();
+interface NoteViewProps {
+  noteId?: string;
+}
+
+export function NoteView({ noteId }: NoteViewProps) {
+  const { notes, updateNote, isEditing, setIsEditing, deleteNote, togglePinned, setActiveNoteId } = useNotes();
+  const activeNoteId = noteId || notes[0]?.id;
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
+  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
+  const [isVersionDialogOpen, setIsVersionDialogOpen] = useState(false);
+  const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
+  
   const activeNote = notes.find(note => note.id === activeNoteId) || null;
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  const [password, setPassword] = useState("");
+  const [isPasswordProtected, setIsPasswordProtected] = useState(false);
+  const [isPublic, setIsPublic] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [selectedVersion, setSelectedVersion] = useState<number | null>(null);
+  
   const titleInputRef = useRef<HTMLInputElement>(null);
   const contentTextareaRef = useRef<HTMLTextAreaElement>(null);
   const isMobile = useIsMobile();
@@ -28,9 +58,13 @@ export function NoteView() {
     if (activeNote) {
       setTitle(activeNote.title);
       setContent(activeNote.content);
+      setIsPasswordProtected(activeNote.isPasswordProtected || false);
+      setIsPublic(activeNote.isPublic || false);
     } else {
       setTitle("");
       setContent("");
+      setIsPasswordProtected(false);
+      setIsPublic(false);
     }
   }, [activeNote]);
 
@@ -42,11 +76,30 @@ export function NoteView() {
 
   const handleSave = () => {
     if (activeNoteId) {
+      // Generate a version if content changed
+      let versions = activeNote?.previousVersions || [];
+      let newVersion = activeNote?.version || 1;
+
+      if (content !== activeNote?.content) {
+        newVersion++;
+        versions = [
+          ...(versions || []),
+          {
+            content: activeNote?.content || "",
+            updatedAt: activeNote?.updatedAt || new Date().toISOString(),
+            version: activeNote?.version || 1
+          }
+        ];
+      }
+
       updateNote(activeNoteId, {
         title: title.trim() || "Untitled Note",
         content,
+        version: newVersion,
+        previousVersions: versions
       });
       setIsEditing(false);
+      toast.success("Note saved");
     }
   };
 
@@ -159,6 +212,110 @@ export function NoteView() {
     }
   };
 
+  const handlePasswordProtect = () => {
+    if (activeNoteId) {
+      updateNote(activeNoteId, {
+        isPasswordProtected,
+        password: isPasswordProtected ? password : undefined
+      });
+      setIsPasswordDialogOpen(false);
+      toast.success(isPasswordProtected ? "Note password protected" : "Password protection removed");
+    }
+  };
+
+  const handleShareNote = () => {
+    if (activeNoteId) {
+      const publicLink = isPublic ? `${window.location.origin}/share/${activeNoteId}` : undefined;
+      updateNote(activeNoteId, {
+        isPublic,
+        publicLink
+      });
+      setIsShareDialogOpen(false);
+      
+      if (isPublic && publicLink) {
+        navigator.clipboard.writeText(publicLink);
+        toast.success("Public link copied to clipboard");
+      } else {
+        toast.success("Note is now private");
+      }
+    }
+  };
+
+  const handleRestoreVersion = () => {
+    if (activeNoteId && selectedVersion && activeNote?.previousVersions) {
+      const version = activeNote.previousVersions.find(v => v.version === selectedVersion);
+      if (version) {
+        setContent(version.content);
+        setIsVersionDialogOpen(false);
+        setIsEditing(true);
+        toast.success(`Restored version ${selectedVersion}`);
+      }
+    }
+  };
+
+  const handleExportNote = (format: string) => {
+    if (!activeNote) return;
+    
+    let exportContent = '';
+    let mimeType = 'text/plain';
+    let fileExtension = 'txt';
+    
+    switch (format) {
+      case 'markdown':
+        exportContent = activeNote.content;
+        fileExtension = 'md';
+        break;
+      case 'html':
+        exportContent = `<!DOCTYPE html>
+<html>
+<head>
+  <title>${activeNote.title}</title>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: system-ui, sans-serif; line-height: 1.5; max-width: 800px; margin: 0 auto; padding: 2rem; }
+    img { max-width: 100%; }
+    pre { background: #f5f5f5; padding: 1rem; overflow-x: auto; }
+    blockquote { border-left: 4px solid #ddd; margin-left: 0; padding-left: 1rem; color: #666; }
+  </style>
+</head>
+<body>
+  <h1>${activeNote.title}</h1>
+  <div class="content">
+    ${activeNote.content}
+  </div>
+</body>
+</html>`;
+        mimeType = 'text/html';
+        fileExtension = 'html';
+        break;
+      case 'json':
+        exportContent = JSON.stringify({
+          title: activeNote.title,
+          content: activeNote.content,
+          createdAt: activeNote.createdAt,
+          updatedAt: activeNote.updatedAt
+        }, null, 2);
+        mimeType = 'application/json';
+        fileExtension = 'json';
+        break;
+      default:
+        exportContent = activeNote.content.replace(/[#*_~`]/g, '');
+    }
+    
+    const blob = new Blob([exportContent], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${activeNote.title || 'Untitled'}.${fileExtension}`;
+    document.body.appendChild(a);
+    a.click();
+    URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+    
+    setIsExportDialogOpen(false);
+    toast.success(`Note exported as ${format.toUpperCase()}`);
+  };
+
   if (!activeNote) {
     return (
       <div className="h-full flex items-center justify-center text-muted-foreground p-4">
@@ -201,6 +358,8 @@ export function NoteView() {
           ) : (
             <h1 className="text-xl font-semibold truncate">
               {activeNote.title || "Untitled Note"}
+              {activeNote.isPasswordProtected && <Lock size={14} className="inline-block ml-2 text-muted-foreground" />}
+              {activeNote.isPublic && <Globe size={14} className="inline-block ml-2 text-muted-foreground" />}
             </h1>
           )}
         </div>
@@ -215,6 +374,35 @@ export function NoteView() {
           >
             {activeNote.isPinned ? <PinOff size={18} /> : <Pin size={18} />}
           </Button>
+          
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <ExternalLink size={18} />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setIsShareDialogOpen(true)}>
+                <Globe size={16} className="mr-2" />
+                Share Note
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setIsPasswordDialogOpen(true)}>
+                <Lock size={16} className="mr-2" />
+                Password Protect
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => setIsExportDialogOpen(true)}>
+                <Download size={16} className="mr-2" />
+                Export Note
+              </DropdownMenuItem>
+              {(activeNote.previousVersions?.length || 0) > 0 && (
+                <DropdownMenuItem onClick={() => setIsVersionDialogOpen(true)}>
+                  <History size={16} className="mr-2" />
+                  Version History
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
           
           {isEditing ? (
             <Button
@@ -271,7 +459,7 @@ export function NoteView() {
       
       {/* Toolbar for markdown formatting */}
       {isEditing && (
-        <div className="flex items-center gap-1 p-1 border-b border-border">
+        <div className="flex items-center gap-1 p-1 border-b border-border overflow-x-auto">
           <Button
             variant="ghost"
             size="icon"
@@ -372,6 +560,160 @@ export function NoteView() {
         </div>
       )}
       
+      {/* Password Protection Dialog */}
+      <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Password Protection</DialogTitle>
+            <DialogDescription>
+              Protect your note with a password to keep it secure.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="flex items-center space-x-2 py-4">
+            <Switch 
+              id="password-protection" 
+              checked={isPasswordProtected}
+              onCheckedChange={setIsPasswordProtected}
+            />
+            <Label htmlFor="password-protection">Enable password protection</Label>
+          </div>
+          
+          {isPasswordProtected && (
+            <Input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter password"
+              autoComplete="new-password"
+            />
+          )}
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsPasswordDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handlePasswordProtect} disabled={isPasswordProtected && !password}>
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Share Note Dialog */}
+      <Dialog open={isShareDialogOpen} onOpenChange={setIsShareDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Share Note</DialogTitle>
+            <DialogDescription>
+              Make your note publicly accessible with a shareable link.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="flex items-center space-x-2 py-4">
+            <Switch 
+              id="public-note" 
+              checked={isPublic}
+              onCheckedChange={setIsPublic}
+            />
+            <Label htmlFor="public-note">Make note public</Label>
+          </div>
+          
+          {isPublic && activeNote.publicLink && (
+            <div className="flex gap-2">
+              <Input 
+                value={activeNote.publicLink} 
+                readOnly
+                className="flex-1"
+              />
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  navigator.clipboard.writeText(activeNote.publicLink || "");
+                  toast.success("Link copied to clipboard");
+                }}
+              >
+                Copy
+              </Button>
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsShareDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleShareNote}>
+              {isPublic ? "Update Sharing" : "Make Private"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Version History Dialog */}
+      <Dialog open={isVersionDialogOpen} onOpenChange={setIsVersionDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Version History</DialogTitle>
+            <DialogDescription>
+              View and restore previous versions of this note.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4">
+            <Select
+              value={selectedVersion?.toString() || ""}
+              onValueChange={(value) => setSelectedVersion(parseInt(value))}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select a version" />
+              </SelectTrigger>
+              <SelectContent>
+                {activeNote.previousVersions?.map((version) => (
+                  <SelectItem key={version.version} value={version.version.toString()}>
+                    Version {version.version} - {new Date(version.updatedAt).toLocaleString()}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsVersionDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleRestoreVersion} disabled={!selectedVersion}>
+              Restore Version
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Export Note Dialog */}
+      <Dialog open={isExportDialogOpen} onOpenChange={setIsExportDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Export Note</DialogTitle>
+            <DialogDescription>
+              Export your note in different formats.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid grid-cols-2 gap-4 py-4">
+            <Button variant="outline" onClick={() => handleExportNote('markdown')}>
+              Markdown (.md)
+            </Button>
+            <Button variant="outline" onClick={() => handleExportNote('html')}>
+              HTML (.html)
+            </Button>
+            <Button variant="outline" onClick={() => handleExportNote('txt')}>
+              Text (.txt)
+            </Button>
+            <Button variant="outline" onClick={() => handleExportNote('json')}>
+              JSON (.json)
+            </Button>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsExportDialogOpen(false)}>Cancel</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Delete Confirmation Dialog */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>

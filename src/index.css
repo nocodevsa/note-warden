@@ -5,7 +5,7 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
+    --background: 240 30% 99%;
     --foreground: 240 10% 3.9%;
 
     --card: 0 0% 100%;
@@ -14,7 +14,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 240 10% 3.9%;
 
-    --primary: 260 60% 75%;
+    --primary: 250 60% 58%;
     --primary-foreground: 0 0% 98%;
 
     --secondary: 240 4.8% 95.9%;
@@ -23,39 +23,39 @@
     --muted: 240 4.8% 95.9%;
     --muted-foreground: 240 3.8% 46.1%;
 
-    --accent: 260 60% 75%;
-    --accent-foreground: 240 5.9% 10%;
+    --accent: 250 60% 95%;
+    --accent-foreground: 250 60% 25%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
 
     --border: 240 5.9% 90%;
     --input: 240 5.9% 90%;
-    --ring: 260 60% 75%;
+    --ring: 250 60% 58%;
 
     --radius: 0.5rem;
 
-    --sidebar-background: 0 0% 98%;
+    --sidebar-background: 250 30% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 260 60% 75%;
+    --sidebar-primary: 250 60% 58%;
     --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 260 60% 75%;
+    --sidebar-accent: 250 60% 95%;
+    --sidebar-accent-foreground: 250 60% 25%;
+    --sidebar-border: 250 10% 91%;
+    --sidebar-ring: 250 60% 58%;
   }
 
   .dark {
-    --background: 240 10% 3.9%;
+    --background: 240 10% 5%;
     --foreground: 0 0% 98%;
 
-    --card: 240 10% 3.9%;
+    --card: 240 10% 7%;
     --card-foreground: 0 0% 98%;
 
-    --popover: 240 10% 3.9%;
+    --popover: 240 10% 7%;
     --popover-foreground: 0 0% 98%;
 
-    --primary: 260 60% 70%;
+    --primary: 250 60% 60%;
     --primary-foreground: 0 0% 98%;
 
     --secondary: 240 3.7% 15.9%;
@@ -64,7 +64,7 @@
     --muted: 240 3.7% 15.9%;
     --muted-foreground: 240 5% 64.9%;
 
-    --accent: 260 60% 70%; 
+    --accent: 250 60% 25%; 
     --accent-foreground: 0 0% 98%;
 
     --destructive: 0 62.8% 30.6%;
@@ -72,16 +72,16 @@
 
     --border: 240 3.7% 15.9%;
     --input: 240 3.7% 15.9%;
-    --ring: 260 60% 70%;
+    --ring: 250 60% 60%;
 
-    --sidebar-background: 240 10% 6%;
+    --sidebar-background: 240 10% 8%;
     --sidebar-foreground: 240 5% 84.9%;
-    --sidebar-primary: 260 60% 70%;
+    --sidebar-primary: 250 60% 60%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 240 3.7% 15.9%;
     --sidebar-accent-foreground: 240 5% 84.9%;
     --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 260 60% 70%;
+    --sidebar-ring: 250 60% 60%;
   }
 }
 
@@ -115,21 +115,71 @@
     @apply list-decimal ml-5 my-2;
   }
   .note-content blockquote {
-    @apply border-l-4 border-muted pl-4 italic my-4;
+    @apply border-l-4 border-note-accent pl-4 italic my-4 text-muted-foreground bg-note-muted rounded-r py-2 pr-2;
   }
   .note-content code {
-    @apply bg-muted rounded px-1;
+    @apply bg-muted rounded px-1 text-sm font-mono;
   }
   .note-content pre {
-    @apply bg-muted p-4 rounded my-4 overflow-x-auto;
+    @apply bg-muted p-4 rounded my-4 overflow-x-auto text-sm;
+  }
+  .note-content pre code {
+    @apply bg-transparent p-0;
   }
   .note-content img {
-    @apply max-w-full h-auto my-4;
+    @apply max-w-full h-auto my-4 rounded-md shadow-sm;
   }
   .note-content a {
-    @apply text-primary underline;
+    @apply text-primary underline decoration-primary/30 hover:decoration-primary transition-colors;
   }
   .note-content hr {
     @apply my-4 border-t border-border;
+  }
+  .note-content table {
+    @apply w-full my-4 border-collapse;
+  }
+  .note-content th {
+    @apply border border-border bg-muted px-4 py-2 text-left font-medium;
+  }
+  .note-content td {
+    @apply border border-border px-4 py-2;
+  }
+  
+  /* Specific styles for internal note links */
+  .note-content a[href^="#note-link-"] {
+    @apply bg-note-highlight px-2 py-0.5 rounded no-underline text-note-accent font-medium hover:bg-note-accent hover:text-note-accent-foreground transition-colors;
+  }
+  
+  /* Style for create note links */
+  .note-content a[href^="#create-note-"] {
+    @apply bg-muted px-2 py-0.5 rounded no-underline text-muted-foreground border border-dashed border-border hover:bg-accent hover:text-accent-foreground transition-colors;
+  }
+  
+  /* Custom scrollbar */
+  .scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+  
+  /* Custom scrollbar for other elements */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-muted rounded-full;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-foreground/30;
   }
 }
