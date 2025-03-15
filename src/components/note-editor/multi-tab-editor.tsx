@@ -48,8 +48,11 @@ export function MultiTabEditor() {
 
   const handleNewTab = () => {
     const newNoteId = createNote();
-    setOpenTabs(prev => [...prev, newNoteId]);
-    setActiveTab(newNoteId);
+    // Fix: Ensure we're only adding string values to the array
+    if (newNoteId) {
+      setOpenTabs(prev => [...prev, newNoteId]);
+      setActiveTab(newNoteId);
+    }
   };
 
   return (

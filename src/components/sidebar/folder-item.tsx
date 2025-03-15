@@ -94,10 +94,12 @@ export function FolderItem({ id, name, isActive, color, icon, depth = 0, parentI
     }
   };
 
-  // Dynamically get the folder icon from Lucide icons
-  const FolderIconComponent = icon && LucideIcons[icon as keyof typeof LucideIcons] 
-    ? LucideIcons[icon as keyof typeof LucideIcons] 
-    : isOpen ? FolderOpen : FolderIcon;
+  // Fix: Dynamically get the folder icon from Lucide icons
+  let IconComponent = isOpen ? FolderOpen : FolderIcon;
+  
+  if (icon && typeof icon === 'string' && Object.prototype.hasOwnProperty.call(LucideIcons, icon)) {
+    IconComponent = LucideIcons[icon as keyof typeof LucideIcons] as React.ComponentType;
+  }
 
   return (
     <div>
@@ -129,7 +131,7 @@ export function FolderItem({ id, name, isActive, color, icon, depth = 0, parentI
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
         >
-          <FolderIconComponent size={16} className={color ? `text-folder-${color}` : ""} />
+          <IconComponent size={16} className={color ? `text-folder-${color}` : ""} />
           <span className="flex-grow truncate">{name}</span>
           
           <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">

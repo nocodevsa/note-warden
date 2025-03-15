@@ -36,7 +36,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ collapsed, onCollapse }: SidebarProps) {
-  const { folders, notes, createNote, createFolder, activeNoteId, activeFolderId, setActiveFolderId, setActiveNoteId } = useNotes();
+  const { folders, notes, createNote, createFolder, activeNoteId, activeFolderId, setActiveFolderId, setActiveNoteId, updateFolder } = useNotes();
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
   const [folderColor, setFolderColor] = useState("");
