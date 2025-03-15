@@ -1,4 +1,3 @@
-
 import type { Config } from "tailwindcss";
 
 export default {
@@ -68,28 +67,28 @@ export default {
           ring: 'hsl(var(--sidebar-ring))'
         },
         note: {
-          'accent': '#6a5acd',
-          'accent-foreground': '#FFFFFF', // Added the missing color
-          'accent-hover': '#5a4abf',
-          'muted': '#f4f0ff',
-          'highlight': '#e6e0ff'
+          'accent': '#3b82f6',
+          'accent-foreground': '#FFFFFF',
+          'accent-hover': '#2563eb',
+          'muted': '#eff6ff',
+          'highlight': '#dbeafe'
         },
         whiteboard: {
           'bg': '#f8f9fa',
           'grid': '#e9ecef',
           'sticky': '#fff9c4',
-          'connector': '#6a5acd'
+          'connector': '#3b82f6'
         },
         folder: {
-          'red': '#ff6b6b',
-          'orange': '#ff922b',
-          'yellow': '#ffd43b',
-          'green': '#69db7c',
-          'teal': '#38d9a9',
-          'blue': '#4dabf7',
-          'indigo': '#748ffc',
-          'purple': '#9775fa',
-          'pink': '#f783ac'
+          'red': '#ef4444',
+          'orange': '#f97316',
+          'yellow': '#eab308',
+          'green': '#22c55e',
+          'teal': '#14b8a6',
+          'blue': '#3b82f6',
+          'indigo': '#6366f1',
+          'purple': '#a855f7',
+          'pink': '#ec4899'
         }
       },
       borderRadius: {

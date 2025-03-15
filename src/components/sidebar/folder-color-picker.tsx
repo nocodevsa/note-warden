@@ -36,26 +36,28 @@ export function FolderColorPicker({ value, onChange }: FolderColorPickerProps) {
         <Button 
           variant="outline" 
           size="sm"
-          className="w-full flex justify-between items-center"
+          className="w-full flex justify-between items-center gap-2 border border-border/60 shadow-sm"
         >
-          <span>Folder Color</span>
+          <span className="font-medium">Folder Color</span>
           <div 
             className={cn(
-              "h-4 w-4 rounded-full", 
+              "h-5 w-5 rounded border border-border/40", 
               value ? `bg-folder-${value}` : "bg-muted"
             )} 
           />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-64 p-2">
+      <PopoverContent className="w-64 p-3">
+        <h3 className="font-medium mb-2 text-sm">Choose a color</h3>
         <div className="grid grid-cols-3 gap-2">
           {colorOptions.map((color) => (
             <button
               key={color.value}
               className={cn(
-                "h-8 rounded-md flex items-center justify-center",
+                "h-10 rounded-md flex items-center justify-center",
                 color.class,
-                "hover:opacity-90 transition-opacity"
+                "hover:opacity-90 transition-opacity",
+                "border border-black/5"
               )}
               onClick={() => {
                 onChange(color.value);
@@ -63,7 +65,7 @@ export function FolderColorPicker({ value, onChange }: FolderColorPickerProps) {
               }}
             >
               {value === color.value && (
-                <Check className="h-4 w-4 text-white" />
+                <Check className="h-4 w-4 text-white drop-shadow-sm" />
               )}
             </button>
           ))}

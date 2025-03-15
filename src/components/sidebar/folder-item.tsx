@@ -94,11 +94,11 @@ export function FolderItem({ id, name, isActive, color, icon, depth = 0, parentI
     }
   };
 
-  // Fix: Dynamically get the folder icon from Lucide icons
-  let IconComponent = isOpen ? FolderOpen : FolderIcon;
+  // Fix: Properly handle dynamic icon component
+  let IconComponent: any = isOpen ? FolderOpen : FolderIcon;
   
-  if (icon && typeof icon === 'string' && Object.prototype.hasOwnProperty.call(LucideIcons, icon)) {
-    IconComponent = LucideIcons[icon as keyof typeof LucideIcons] as React.ComponentType;
+  if (icon && Object.prototype.hasOwnProperty.call(LucideIcons, icon)) {
+    IconComponent = (LucideIcons as any)[icon];
   }
 
   return (
