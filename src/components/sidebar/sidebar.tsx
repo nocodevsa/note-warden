@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -27,6 +26,7 @@ import {
   Settings,
   Search,
 } from "lucide-react";
+import { SettingsDialog } from "@/components/settings/settings-dialog";
 
 export function Sidebar({
   collapsed = false,
@@ -250,6 +250,8 @@ export function Sidebar({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <SettingsDialog />
     </div>
   );
 }

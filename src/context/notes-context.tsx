@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { NoteType, FolderType, TagType, NoteBackground } from "@/lib/types";
 import { sampleNotes, sampleFolders, sampleTags } from "@/lib/sample-data";
@@ -44,6 +43,16 @@ type NotesContextType = {
   removeTagFromNote: (noteId: string, tagId: string) => void;
   togglePinned: (id: string) => void;
   setDefaultNoteBackground: (background: NoteBackground) => void;
+  googleDriveSettings: {
+    isEnabled: boolean;
+    folderId: string | null;
+    lastSyncedAt: string | null;
+  };
+  updateGoogleDriveSettings: (settings: Partial<{
+    isEnabled: boolean;
+    folderId: string | null;
+  }>) => void;
+  syncWithGoogleDrive: () => Promise<boolean>;
 };
 
 const NotesContext = createContext<NotesContextType | undefined>(undefined);
@@ -55,6 +64,7 @@ const LOCAL_STORAGE_KEYS = {
   ACTIVE_NOTE: "noteflow_active_note",
   ACTIVE_FOLDER: "noteflow_active_folder",
   DEFAULT_BG: "noteflow_default_bg",
+  GOOGLE_DRIVE_SETTINGS: "noteflow_gdrive_settings",
 };
 
 export function NotesProvider({ children }: { children: React.ReactNode }) {
@@ -66,6 +76,13 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
   const [defaultNoteBackground, setDefaultNoteBackground] = useState<NoteBackground>("#FFFFFF");
   const [isEditing, setIsEditing] = useState(false);
   const [selectedNoteIds, setSelectedNoteIds] = useState<string[]>([]);
+  
+  // Google Drive integration settings
+  const [googleDriveSettings, setGoogleDriveSettings] = useState({
+    isEnabled: false,
+    folderId: null as string | null,
+    lastSyncedAt: null as string | null,
+  });
   
   // Initialize history state for undo/redo
   const [noteHistory, setNoteHistory] = useState<HistoryState>({
@@ -85,6 +102,7 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
     const storedActiveNote = localStorage.getItem(`${userPrefix}${LOCAL_STORAGE_KEYS.ACTIVE_NOTE}`);
     const storedActiveFolder = localStorage.getItem(`${userPrefix}${LOCAL_STORAGE_KEYS.ACTIVE_FOLDER}`);
     const storedDefaultBg = localStorage.getItem(`${userPrefix}${LOCAL_STORAGE_KEYS.DEFAULT_BG}`);
+    const storedGDriveSettings = localStorage.getItem(`${userPrefix}${LOCAL_STORAGE_KEYS.GOOGLE_DRIVE_SETTINGS}`);
 
     if (storedNotes) {
       const parsedNotes = JSON.parse(storedNotes);
@@ -112,6 +130,7 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
     if (storedActiveNote) setActiveNoteId(JSON.parse(storedActiveNote));
     if (storedActiveFolder) setActiveFolderId(JSON.parse(storedActiveFolder));
     if (storedDefaultBg) setDefaultNoteBackground(JSON.parse(storedDefaultBg));
+    if (storedGDriveSettings) setGoogleDriveSettings(JSON.parse(storedGDriveSettings));
   }, [userPrefix]);
 
   // Save data to localStorage whenever it changes
@@ -122,7 +141,8 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem(`${userPrefix}${LOCAL_STORAGE_KEYS.ACTIVE_NOTE}`, JSON.stringify(activeNoteId));
     localStorage.setItem(`${userPrefix}${LOCAL_STORAGE_KEYS.ACTIVE_FOLDER}`, JSON.stringify(activeFolderId));
     localStorage.setItem(`${userPrefix}${LOCAL_STORAGE_KEYS.DEFAULT_BG}`, JSON.stringify(defaultNoteBackground));
-  }, [notes, folders, tags, activeNoteId, activeFolderId, defaultNoteBackground, userPrefix]);
+    localStorage.setItem(`${userPrefix}${LOCAL_STORAGE_KEYS.GOOGLE_DRIVE_SETTINGS}`, JSON.stringify(googleDriveSettings));
+  }, [notes, folders, tags, activeNoteId, activeFolderId, defaultNoteBackground, googleDriveSettings, userPrefix]);
 
   // Update history when notes change
   useEffect(() => {
@@ -298,7 +318,23 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
   };
 
   const deleteTag = (id: string) => {
+    // Remove the tag
     setTags((prevTags) => prevTags.filter((tag) => tag.id !== id));
+    
+    // Remove tag from all notes that have it
+    setNotes(prevNotes => 
+      prevNotes.map(note => {
+        if (note.tags && note.tags.includes(id)) {
+          return {
+            ...note,
+            tags: note.tags.filter(tagId => tagId !== id)
+          };
+        }
+        return note;
+      })
+    );
+    
+    toast.success("Tag deleted");
   };
   
   const addTagToNote = (noteId: string, tagId: string) => {
@@ -347,6 +383,50 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
     );
   };
 
+  const updateGoogleDriveSettings = (settings: Partial<{
+    isEnabled: boolean;
+    folderId: string | null;
+  }>) => {
+    setGoogleDriveSettings(prev => {
+      const updated = {
+        ...prev,
+        ...settings,
+        lastSyncedAt: settings.isEnabled !== undefined && settings.isEnabled !== prev.isEnabled 
+          ? settings.isEnabled ? new Date().toISOString() : prev.lastSyncedAt
+          : prev.lastSyncedAt
+      };
+      
+      return updated;
+    });
+    
+    toast.success("Google Drive settings updated");
+  };
+  
+  const syncWithGoogleDrive = async (): Promise<boolean> => {
+    if (!googleDriveSettings.isEnabled || !googleDriveSettings.folderId) {
+      toast.error("Google Drive sync is not properly configured");
+      return false;
+    }
+    
+    try {
+      // In a real app, this would interact with Google Drive API
+      // For this demo, we'll just simulate a successful sync
+      
+      // Update the last synced timestamp
+      setGoogleDriveSettings(prev => ({
+        ...prev,
+        lastSyncedAt: new Date().toISOString()
+      }));
+      
+      toast.success("Successfully synced with Google Drive");
+      return true;
+    } catch (error) {
+      toast.error("Failed to sync with Google Drive");
+      console.error("Google Drive sync error:", error);
+      return false;
+    }
+  };
+
   const value = {
     notes,
     folders,
@@ -378,6 +458,9 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
     removeTagFromNote,
     togglePinned,
     setDefaultNoteBackground,
+    googleDriveSettings,
+    updateGoogleDriveSettings,
+    syncWithGoogleDrive,
   };
 
   return (

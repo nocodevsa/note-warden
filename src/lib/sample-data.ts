@@ -1,4 +1,5 @@
-import { FolderType, NoteType } from "./types";
+
+import { FolderType, NoteType, TagType } from "./types";
 
 export const sampleFolders: FolderType[] = [
   {
@@ -117,5 +118,25 @@ export const sampleTags = [
     id: "tag-3",
     name: "Work",
     color: "#10b981"
+  },
+  {
+    id: "tag-4",
+    name: "Design",
+    color: "#93c5fd"  // light blue
+  },
+  {
+    id: "tag-5",
+    name: "Study",
+    color: "#d8b4fe"  // light purple
+  },
+  {
+    id: "tag-6",
+    name: "Projects",
+    color: "#86efac"  // light green
+  },
+  {
+    id: "tag-7",
+    name: "Finance",
+    color: "#fde68a"  // light yellow
   }
 ];

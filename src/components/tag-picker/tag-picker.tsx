@@ -13,14 +13,26 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { X, Plus, Tag as TagIcon } from "lucide-react";
+import { X, Plus, Tag as TagIcon, Trash2 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface TagPickerProps {
   noteId: string;
@@ -28,10 +40,12 @@ interface TagPickerProps {
 }
 
 export function TagPicker({ noteId, tags = [] }: TagPickerProps) {
-  const { tags: allTags, addTagToNote, removeTagFromNote, createTag } = useNotes();
+  const { tags: allTags, addTagToNote, removeTagFromNote, createTag, deleteTag } = useNotes();
   const [newTagName, setNewTagName] = useState("");
   const [newTagColor, setNewTagColor] = useState("#3B82F6");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [tagToDelete, setTagToDelete] = useState<string | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   
   const noteTags = allTags.filter(tag => tags.includes(tag.id));
   const availableTags = allTags.filter(tag => !tags.includes(tag.id));
@@ -45,6 +59,14 @@ export function TagPicker({ noteId, tags = [] }: TagPickerProps) {
       setIsCreateDialogOpen(false);
     }
   };
+  
+  const handleDeleteTag = () => {
+    if (tagToDelete) {
+      deleteTag(tagToDelete);
+      setTagToDelete(null);
+      setIsDeleteDialogOpen(false);
+    }
+  };
 
   return (
     <div className="flex flex-wrap gap-2 items-center">
@@ -55,17 +77,32 @@ export function TagPicker({ noteId, tags = [] }: TagPickerProps) {
             backgroundColor: tag.color,
             color: isLightColor(tag.color) ? '#000' : '#fff'
           }}
-          className="gap-1 cursor-default"
+          className="gap-1 cursor-default group"
         >
           {tag.name}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-4 w-4 p-0 rounded-full hover:bg-black/20"
-            onClick={() => removeTagFromNote(noteId, tag.id)}
-          >
-            <X size={10} />
-          </Button>
+          <div className="flex items-center gap-0.5">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-4 w-4 p-0 rounded-full hover:bg-black/20"
+              onClick={() => removeTagFromNote(noteId, tag.id)}
+              title="Remove from note"
+            >
+              <X size={10} />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-4 w-4 p-0 rounded-full hover:bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={() => {
+                setTagToDelete(tag.id);
+                setIsDeleteDialogOpen(true);
+              }}
+              title="Delete tag completely"
+            >
+              <Trash2 size={10} />
+            </Button>
+          </div>
         </Badge>
       ))}
       
@@ -99,6 +136,9 @@ export function TagPicker({ noteId, tags = [] }: TagPickerProps) {
               </div>
             )}
           </ScrollArea>
+          
+          <DropdownMenuSeparator />
+          
           <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
             <DialogTrigger asChild>
               <Button variant="ghost" size="sm" className="w-full justify-start px-2 gap-2">
@@ -156,8 +196,66 @@ export function TagPicker({ noteId, tags = [] }: TagPickerProps) {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+          
+          <DropdownMenuSeparator />
+          
+          {allTags.length > 0 && (
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              onClick={() => {
+                if (allTags.length > 0) {
+                  setTagToDelete(allTags[0].id);
+                  setIsDeleteDialogOpen(true);
+                }
+              }}
+            >
+              <Trash2 size={14} className="mr-2" />
+              Manage & Delete Tags
+            </DropdownMenuItem>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
+      
+      {/* Delete tag confirmation dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Tag</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this tag and remove it from all notes. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4">
+            <div className="text-sm font-medium mb-2">Select tag to delete:</div>
+            <div className="flex flex-wrap gap-2">
+              {allTags.map(tag => (
+                <Badge 
+                  key={tag.id}
+                  style={{ 
+                    backgroundColor: tagToDelete === tag.id ? tag.color : 'transparent',
+                    color: tagToDelete === tag.id ? (isLightColor(tag.color) ? '#000' : '#fff') : 'inherit',
+                    borderColor: tag.color,
+                    borderWidth: '1px'
+                  }}
+                  className="cursor-pointer"
+                  onClick={() => setTagToDelete(tag.id)}
+                >
+                  {tag.name}
+                </Badge>
+              ))}
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setTagToDelete(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={handleDeleteTag}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
