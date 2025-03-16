@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNotes } from "@/context/notes-context";
 import { useAuth } from "@/context/auth-context";
@@ -11,7 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Cloud, HardDrive, Palette, Settings as SettingsIcon, Tag as TagIcon } from "lucide-react";
+import { Cloud, HardDrive, Palette, Settings as SettingsIcon, Tag as TagIcon, AlertCircle, CheckCircle, Clock } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -50,7 +49,6 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [gDriveFolderId, setGDriveFolderId] = useState(googleDriveSettings.folderId || "");
   const [isGDriveEnabled, setIsGDriveEnabled] = useState(googleDriveSettings.isEnabled);
-  const [isSyncing, setIsSyncing] = useState(false);
   
   const handleDeleteTag = () => {
     if (tagToDelete) {
@@ -65,17 +63,10 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
       isEnabled: isGDriveEnabled,
       folderId: gDriveFolderId.trim() || null,
     });
-    
-    toast.success("Google Drive settings updated");
   };
   
   const handleSyncNow = async () => {
-    setIsSyncing(true);
-    try {
-      await syncWithGoogleDrive();
-    } finally {
-      setIsSyncing(false);
-    }
+    await syncWithGoogleDrive();
   };
   
   const formatDate = (dateString: string | null) => {
@@ -84,17 +75,47 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   };
 
   const isLightColor = (color: string): boolean => {
-    // Convert hex to RGB
     const hex = color.replace('#', '');
     const r = parseInt(hex.substr(0, 2), 16);
     const g = parseInt(hex.substr(2, 2), 16);
     const b = parseInt(hex.substr(4, 2), 16);
     
-    // Calculate perceived brightness
     const brightness = (r * 299 + g * 587 + b * 114) / 1000;
     
-    // Return true if color is light
     return brightness > 128;
+  };
+  
+  const getSyncStatusDisplay = () => {
+    switch (googleDriveSettings.syncStatus) {
+      case "syncing":
+        return (
+          <div className="flex items-center text-blue-500 gap-1">
+            <Clock size={16} className="animate-pulse" />
+            <span>Syncing...</span>
+          </div>
+        );
+      case "success":
+        return (
+          <div className="flex items-center text-green-500 gap-1">
+            <CheckCircle size={16} />
+            <span>Synced</span>
+          </div>
+        );
+      case "error":
+        return (
+          <div className="flex items-center text-red-500 gap-1">
+            <AlertCircle size={16} />
+            <span>Error</span>
+          </div>
+        );
+      default:
+        return (
+          <div className="flex items-center text-muted-foreground gap-1">
+            <Cloud size={16} />
+            <span>Idle</span>
+          </div>
+        );
+    }
   };
   
   return (
@@ -180,11 +201,27 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                     </p>
                   </div>
                   
-                  <div className="space-y-2">
-                    <div className="grid grid-cols-[140px_1fr] gap-2 items-center">
+                  <div className="space-y-3 border rounded-md p-4">
+                    <h4 className="text-sm font-medium">Sync Status</h4>
+                    
+                    <div className="grid grid-cols-[120px_1fr] gap-2 items-center">
+                      <span className="text-sm text-muted-foreground">Status:</span>
+                      <div>{getSyncStatusDisplay()}</div>
+                    </div>
+                    
+                    <div className="grid grid-cols-[120px_1fr] gap-2 items-center">
                       <span className="text-sm text-muted-foreground">Last synced:</span>
                       <span>{formatDate(googleDriveSettings.lastSyncedAt)}</span>
                     </div>
+                    
+                    {googleDriveSettings.lastError && (
+                      <div className="mt-2">
+                        <div className="text-sm text-muted-foreground mb-1">Error details:</div>
+                        <div className="text-sm text-red-500 bg-red-50 dark:bg-red-950/20 p-2 rounded-md">
+                          {googleDriveSettings.lastError}
+                        </div>
+                      </div>
+                    )}
                   </div>
                   
                   <div className="flex justify-end space-x-2">
@@ -197,9 +234,9 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                     </Button>
                     <Button 
                       onClick={handleSyncNow}
-                      disabled={!isGDriveEnabled || !googleDriveSettings.folderId || isSyncing}
+                      disabled={!isGDriveEnabled || !googleDriveSettings.folderId || googleDriveSettings.syncStatus === "syncing"}
                     >
-                      {isSyncing ? "Syncing..." : "Sync Now"}
+                      {googleDriveSettings.syncStatus === "syncing" ? "Syncing..." : "Sync Now"}
                     </Button>
                   </div>
                 </div>

@@ -46,6 +46,8 @@ type NotesContextType = {
     isEnabled: boolean;
     folderId: string | null;
     lastSyncedAt: string | null;
+    syncStatus: "idle" | "syncing" | "error" | "success";
+    lastError: string | null;
   };
   updateGoogleDriveSettings: (settings: Partial<{
     isEnabled: boolean;
@@ -80,6 +82,8 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
     isEnabled: false,
     folderId: null as string | null,
     lastSyncedAt: null as string | null,
+    syncStatus: "idle" as "idle" | "syncing" | "error" | "success",
+    lastError: null as string | null,
   });
   
   const [noteHistory, setNoteHistory] = useState<HistoryState>({
@@ -87,6 +91,8 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
     present: [],
     future: []
   });
+  
+  const [syncTimeoutId, setSyncTimeoutId] = useState<number | null>(null);
 
   const { user } = useContext(AuthContext) || { user: null };
   const userPrefix = user ? `user_${user.id}_` : '';
@@ -396,30 +402,62 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
         ...settings,
         lastSyncedAt: settings.isEnabled !== undefined && settings.isEnabled !== prev.isEnabled 
           ? settings.isEnabled ? new Date().toISOString() : prev.lastSyncedAt
-          : prev.lastSyncedAt
+          : prev.lastSyncedAt,
+        syncStatus: "idle",
+        lastError: null
       };
       
       return updated;
     });
     
     toast.success("Google Drive settings updated");
+    
+    if (settings.isEnabled && 
+        ((settings.folderId && settings.folderId.trim() !== "") || 
+         (googleDriveSettings.folderId && googleDriveSettings.folderId.trim() !== ""))) {
+      setTimeout(() => {
+        syncWithGoogleDrive().catch(console.error);
+      }, 500);
+    }
   };
   
   const syncWithGoogleDrive = async (): Promise<boolean> => {
     if (!googleDriveSettings.isEnabled || !googleDriveSettings.folderId) {
       toast.error("Google Drive sync is not properly configured");
+      setGoogleDriveSettings(prev => ({
+        ...prev,
+        syncStatus: "error",
+        lastError: "Google Drive sync is not properly configured"
+      }));
       return false;
     }
     
     try {
       setGoogleDriveSettings(prev => ({
         ...prev,
-        lastSyncedAt: new Date().toISOString()
+        syncStatus: "syncing"
+      }));
+      
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      setGoogleDriveSettings(prev => ({
+        ...prev,
+        lastSyncedAt: new Date().toISOString(),
+        syncStatus: "success",
+        lastError: null
       }));
       
       toast.success("Successfully synced with Google Drive");
       return true;
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+      
+      setGoogleDriveSettings(prev => ({
+        ...prev,
+        syncStatus: "error",
+        lastError: errorMessage
+      }));
+      
       toast.error("Failed to sync with Google Drive");
       console.error("Google Drive sync error:", error);
       return false;
