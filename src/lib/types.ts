@@ -19,6 +19,7 @@ export type NoteType = {
   }>;
   linkedNotes?: string[]; // IDs of linked notes
   tags?: string[]; // IDs of associated tags
+  backgroundColor?: string; // Added property for note background color
 };
 
 export type FolderType = {
