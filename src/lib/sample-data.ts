@@ -1,4 +1,3 @@
-
 import { FolderType, NoteType } from "./types";
 
 export const sampleFolders: FolderType[] = [
@@ -101,4 +100,22 @@ Try creating a new note or folder to get started!`,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
+];
+
+export const sampleTags = [
+  {
+    id: "tag-1",
+    name: "Important",
+    color: "#ef4444"
+  },
+  {
+    id: "tag-2",
+    name: "Personal",
+    color: "#3b82f6"
+  },
+  {
+    id: "tag-3",
+    name: "Work",
+    color: "#10b981"
+  }
 ];

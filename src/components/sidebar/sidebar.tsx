@@ -227,14 +227,14 @@ export function Sidebar({
             <div className="space-y-2">
               <label className="text-sm font-medium leading-none">Color</label>
               <FolderColorPicker
-                selectedColor={selectedColor}
+                value={selectedColor}
                 onChange={setSelectedColor}
               />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium leading-none">Icon</label>
               <FolderIconPicker
-                selectedIcon={selectedIcon}
+                value={selectedIcon}
                 onChange={setSelectedIcon}
               />
             </div>

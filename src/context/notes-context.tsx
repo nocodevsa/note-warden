@@ -1,9 +1,17 @@
+
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { NoteType, FolderType, TagType, NoteBackground } from "@/lib/types";
 import { sampleNotes, sampleFolders, sampleTags } from "@/lib/sample-data";
 import { toast } from "sonner";
 import { v4 as uuidv4 } from "uuid";
 import { AuthContext } from "./auth-context";
+
+// Defining the history state for undo/redo functionality
+interface HistoryState {
+  past: Array<NoteType[]>;
+  present: NoteType[];
+  future: Array<NoteType[]>;
+}
 
 type NotesContextType = {
   notes: NoteType[];
@@ -12,6 +20,15 @@ type NotesContextType = {
   activeNoteId: string | null;
   activeFolderId: string | null;
   defaultNoteBackground: NoteBackground;
+  isEditing: boolean;
+  setIsEditing: (isEditing: boolean) => void;
+  selectedNoteIds: string[];
+  toggleNoteSelection: (id: string) => void;
+  clearNoteSelection: () => void;
+  deleteMultipleNotes: (ids: string[]) => void;
+  noteHistory: HistoryState;
+  undoNoteChange: () => void;
+  redoNoteChange: () => void;
   setActiveNoteId: (id: string | null) => void;
   setActiveFolderId: (id: string | null) => void;
   createNote: (folderId?: string | null) => string;
@@ -21,8 +38,11 @@ type NotesContextType = {
   createFolder: (folder: Omit<FolderType, "id" | "createdAt">) => string;
   updateFolder: (id: string, updates: Partial<Omit<FolderType, "id">>) => void;
   deleteFolder: (id: string) => void;
-  createTag: (tag: Omit<TagType, "id">) => string;
+  createTag: (name: string, color: string) => string;
   deleteTag: (id: string) => void;
+  addTagToNote: (noteId: string, tagId: string) => void;
+  removeTagFromNote: (noteId: string, tagId: string) => void;
+  togglePinned: (id: string) => void;
   setDefaultNoteBackground: (background: NoteBackground) => void;
 };
 
@@ -44,6 +64,15 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
   const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
   const [defaultNoteBackground, setDefaultNoteBackground] = useState<NoteBackground>("#FFFFFF");
+  const [isEditing, setIsEditing] = useState(false);
+  const [selectedNoteIds, setSelectedNoteIds] = useState<string[]>([]);
+  
+  // Initialize history state for undo/redo
+  const [noteHistory, setNoteHistory] = useState<HistoryState>({
+    past: [],
+    present: [],
+    future: []
+  });
 
   const { user } = useContext(AuthContext) || { user: null };
   const userPrefix = user ? `user_${user.id}_` : '';
@@ -57,8 +86,22 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
     const storedActiveFolder = localStorage.getItem(`${userPrefix}${LOCAL_STORAGE_KEYS.ACTIVE_FOLDER}`);
     const storedDefaultBg = localStorage.getItem(`${userPrefix}${LOCAL_STORAGE_KEYS.DEFAULT_BG}`);
 
-    if (storedNotes) setNotes(JSON.parse(storedNotes));
-    else setNotes(sampleNotes);
+    if (storedNotes) {
+      const parsedNotes = JSON.parse(storedNotes);
+      setNotes(parsedNotes);
+      setNoteHistory({
+        past: [],
+        present: parsedNotes,
+        future: []
+      });
+    } else {
+      setNotes(sampleNotes);
+      setNoteHistory({
+        past: [],
+        present: sampleNotes,
+        future: []
+      });
+    }
 
     if (storedFolders) setFolders(JSON.parse(storedFolders));
     else setFolders(sampleFolders);
@@ -80,6 +123,75 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem(`${userPrefix}${LOCAL_STORAGE_KEYS.ACTIVE_FOLDER}`, JSON.stringify(activeFolderId));
     localStorage.setItem(`${userPrefix}${LOCAL_STORAGE_KEYS.DEFAULT_BG}`, JSON.stringify(defaultNoteBackground));
   }, [notes, folders, tags, activeNoteId, activeFolderId, defaultNoteBackground, userPrefix]);
+
+  // Update history when notes change
+  useEffect(() => {
+    if (noteHistory.present !== notes && notes.length > 0) {
+      setNoteHistory({
+        past: [...noteHistory.past, noteHistory.present],
+        present: notes,
+        future: []
+      });
+    }
+  }, [notes]);
+
+  const undoNoteChange = () => {
+    if (noteHistory.past.length === 0) return;
+    
+    const newPast = [...noteHistory.past];
+    const previous = newPast.pop();
+    
+    setNoteHistory({
+      past: newPast,
+      present: previous as NoteType[],
+      future: [notes, ...noteHistory.future]
+    });
+    
+    setNotes(previous as NoteType[]);
+  };
+
+  const redoNoteChange = () => {
+    if (noteHistory.future.length === 0) return;
+    
+    const [next, ...newFuture] = noteHistory.future;
+    
+    setNoteHistory({
+      past: [...noteHistory.past, notes],
+      present: next,
+      future: newFuture
+    });
+    
+    setNotes(next);
+  };
+  
+  // Toggle note selection for multi-select functionality
+  const toggleNoteSelection = (id: string) => {
+    setSelectedNoteIds(prev => {
+      if (prev.includes(id)) {
+        return prev.filter(noteId => noteId !== id);
+      } else {
+        return [...prev, id];
+      }
+    });
+  };
+  
+  // Clear note selection
+  const clearNoteSelection = () => {
+    setSelectedNoteIds([]);
+  };
+  
+  // Delete multiple notes at once
+  const deleteMultipleNotes = (ids: string[]) => {
+    setNotes(prevNotes => prevNotes.filter(note => !ids.includes(note.id)));
+    
+    // If the active note was deleted, clear activeNoteId
+    if (activeNoteId && ids.includes(activeNoteId)) {
+      setActiveNoteId(null);
+    }
+    
+    clearNoteSelection();
+    toast.success(`${ids.length} notes deleted`);
+  };
 
   const createNote = (folderId?: string | null) => {
     const newNote: NoteType = {
@@ -175,10 +287,11 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
     setFolders((prevFolders) => prevFolders.filter((folder) => folder.id !== id));
   };
 
-  const createTag = (tag: Omit<TagType, "id">) => {
+  const createTag = (name: string, color: string) => {
     const newTag: TagType = {
       id: uuidv4(),
-      ...tag,
+      name,
+      color,
     };
     setTags((prevTags) => [newTag, ...prevTags]);
     return newTag.id;
@@ -186,6 +299,52 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
 
   const deleteTag = (id: string) => {
     setTags((prevTags) => prevTags.filter((tag) => tag.id !== id));
+  };
+  
+  const addTagToNote = (noteId: string, tagId: string) => {
+    setNotes(prevNotes => 
+      prevNotes.map(note => {
+        if (note.id === noteId) {
+          const updatedTags = [...(note.tags || [])];
+          if (!updatedTags.includes(tagId)) {
+            updatedTags.push(tagId);
+          }
+          return {
+            ...note,
+            tags: updatedTags
+          };
+        }
+        return note;
+      })
+    );
+  };
+  
+  const removeTagFromNote = (noteId: string, tagId: string) => {
+    setNotes(prevNotes => 
+      prevNotes.map(note => {
+        if (note.id === noteId && note.tags) {
+          return {
+            ...note,
+            tags: note.tags.filter(id => id !== tagId)
+          };
+        }
+        return note;
+      })
+    );
+  };
+  
+  const togglePinned = (id: string) => {
+    setNotes(prevNotes => 
+      prevNotes.map(note => {
+        if (note.id === id) {
+          return {
+            ...note,
+            isPinned: !note.isPinned
+          };
+        }
+        return note;
+      })
+    );
   };
 
   const value = {
@@ -195,6 +354,15 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
     activeNoteId,
     activeFolderId,
     defaultNoteBackground,
+    isEditing,
+    setIsEditing, 
+    selectedNoteIds,
+    toggleNoteSelection,
+    clearNoteSelection,
+    deleteMultipleNotes,
+    noteHistory,
+    undoNoteChange,
+    redoNoteChange,
     setActiveNoteId,
     setActiveFolderId,
     createNote,
@@ -206,6 +374,9 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
     deleteFolder,
     createTag,
     deleteTag,
+    addTagToNote,
+    removeTagFromNote,
+    togglePinned,
     setDefaultNoteBackground,
   };
 

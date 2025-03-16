@@ -13,19 +13,18 @@ import { FolderIconPicker } from "./folder-icon-picker";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import * as LucideIcons from "lucide-react";
+import { FolderType } from "@/lib/types";
 
-interface FolderItemProps {
-  id: string;
-  name: string;
-  isActive: boolean;
-  color?: string;
-  icon?: string;
-  depth?: number;
-  parentId?: string | null;
+export interface FolderItemProps {
+  folder: FolderType;
+  collapsed: boolean;
+  activeFolderId: string | null;
+  onSelectFolder: (id: string) => void;
 }
 
-export function FolderItem({ id, name, isActive, color, icon, depth = 0, parentId }: FolderItemProps) {
-  const { setActiveFolderId, updateFolder, deleteFolder, createNote, notes, updateNote, folders, createFolder } = useNotes();
+export function FolderItem({ folder, collapsed, activeFolderId, onSelectFolder }: FolderItemProps) {
+  const { id, name, color, icon, parentId } = folder;
+  const { updateFolder, deleteFolder, createNote, notes, updateNote, folders, createFolder } = useNotes();
   const [isOpen, setIsOpen] = useState(false);
   const [isCustomizing, setIsCustomizing] = useState(false);
   const [isRenaming, setIsRenaming] = useState(false);
@@ -36,6 +35,7 @@ export function FolderItem({ id, name, isActive, color, icon, depth = 0, parentI
   const [selectedColor, setSelectedColor] = useState(color || "");
   const [selectedIcon, setSelectedIcon] = useState(icon || "folder");
   
+  const isActive = activeFolderId === id;
   const folderNotes = notes.filter(note => note.folderId === id);
   const hasNotes = folderNotes.length > 0;
   
@@ -45,13 +45,13 @@ export function FolderItem({ id, name, isActive, color, icon, depth = 0, parentI
 
   const handleRename = () => {
     if (newName.trim()) {
-      updateFolder(id, newName.trim());
+      updateFolder(id, { name: newName.trim() });
       setIsRenaming(false);
     }
   };
 
   const handleCustomize = () => {
-    updateFolder(id, name, { 
+    updateFolder(id, { 
       color: selectedColor, 
       icon: selectedIcon 
     });
@@ -61,7 +61,10 @@ export function FolderItem({ id, name, isActive, color, icon, depth = 0, parentI
 
   const handleCreateSubfolder = () => {
     if (newFolderName.trim()) {
-      createFolder(newFolderName.trim(), id);
+      createFolder({
+        name: newFolderName.trim(),
+        parentId: id
+      });
       setNewFolderName("");
       setIsOpen(true); // Open the folder to show the new subfolder
     }
@@ -104,8 +107,6 @@ export function FolderItem({ id, name, isActive, color, icon, depth = 0, parentI
   return (
     <div>
       <div className="flex items-center group">
-        <div style={{ width: depth * 12 }} /> {/* Indentation for nested folders */}
-        
         <Button
           variant="ghost"
           size="sm"
@@ -126,61 +127,63 @@ export function FolderItem({ id, name, isActive, color, icon, depth = 0, parentI
             color && `text-folder-${color}`,
             "hover:bg-accent/50 transition-colors"
           )}
-          onClick={() => setActiveFolderId(id)}
+          onClick={() => onSelectFolder(id)}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
         >
           <IconComponent size={16} className={color ? `text-folder-${color}` : ""} />
-          <span className="flex-grow truncate">{name}</span>
+          {!collapsed && <span className="flex-grow truncate">{name}</span>}
           
-          <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="h-6 w-6"
-              onClick={(e) => { 
-                e.stopPropagation(); 
-                createNote(id);
-              }}
-            >
-              <Plus size={14} />
-            </Button>
-            
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-6 w-6"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <MoreVertical size={14} />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setIsRenaming(true)}>
-                  <Edit size={14} className="mr-2" />
-                  Rename
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setIsCustomizing(true)}>
-                  <Palette size={14} className="mr-2" />
-                  Customize
-                </DropdownMenuItem>
-                <DropdownMenuItem 
-                  className="text-destructive focus:text-destructive"
-                  onClick={() => setIsDeleteDialogOpen(true)}
-                >
-                  <Trash size={14} className="mr-2" />
-                  Delete
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+          {!collapsed && (
+            <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-6 w-6"
+                onClick={(e) => { 
+                  e.stopPropagation(); 
+                  createNote(id);
+                }}
+              >
+                <Plus size={14} />
+              </Button>
+              
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-6 w-6"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <MoreVertical size={14} />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setIsRenaming(true)}>
+                    <Edit size={14} className="mr-2" />
+                    Rename
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setIsCustomizing(true)}>
+                    <Palette size={14} className="mr-2" />
+                    Customize
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    className="text-destructive focus:text-destructive"
+                    onClick={() => setIsDeleteDialogOpen(true)}
+                  >
+                    <Trash size={14} className="mr-2" />
+                    Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          )}
         </div>
       </div>
       
-      {isOpen && (
+      {isOpen && !collapsed && (
         <div className="ml-8 pl-2 border-l-2 border-border mt-1">
           {/* Add new subfolder input */}
           <div className="py-1">
@@ -205,16 +208,13 @@ export function FolderItem({ id, name, isActive, color, icon, depth = 0, parentI
           </div>
 
           {/* Child folders */}
-          {childFolders.map(folder => (
+          {childFolders.map(childFolder => (
             <FolderItem 
-              key={folder.id}
-              id={folder.id}
-              name={folder.name}
-              isActive={folder.id === id}
-              color={folder.color}
-              icon={folder.icon}
-              depth={depth + 1}
-              parentId={id}
+              key={childFolder.id}
+              folder={childFolder}
+              collapsed={collapsed}
+              activeFolderId={activeFolderId}
+              onSelectFolder={onSelectFolder}
             />
           ))}
 
@@ -225,6 +225,7 @@ export function FolderItem({ id, name, isActive, color, icon, depth = 0, parentI
         </div>
       )}
       
+      {/* Dialogs */}
       <Dialog open={isRenaming} onOpenChange={setIsRenaming}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
