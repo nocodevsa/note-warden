@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -41,6 +42,7 @@ export function Sidebar({
   const [folderName, setFolderName] = useState("");
   const [selectedColor, setSelectedColor] = useState<string>("#4F46E5");
   const [selectedIcon, setSelectedIcon] = useState<string>("folder");
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const handleCreateFolder = () => {
     const trimmedName = folderName.trim();
@@ -172,6 +174,7 @@ export function Sidebar({
               "justify-start gap-2", 
               collapsed && "justify-center px-0"
             )}
+            onClick={() => setIsSettingsOpen(true)}
           >
             <Settings size={16} />
             {!collapsed && <span>Settings</span>}
@@ -251,7 +254,8 @@ export function Sidebar({
         </DialogContent>
       </Dialog>
 
-      <SettingsDialog />
+      {/* Use the isSettingsOpen state to control the SettingsDialog */}
+      <SettingsDialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen} />
     </div>
   );
 }

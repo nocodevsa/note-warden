@@ -8,11 +8,10 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings, Cloud, HardDrive, Tag as TagIcon, Palette } from "lucide-react";
+import { Cloud, HardDrive, Palette, Settings as SettingsIcon, Tag as TagIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -29,7 +28,12 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 
-export function SettingsDialog() {
+interface SettingsDialogProps {
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}
+
+export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   const { 
     tags, 
     deleteTag, 
@@ -42,7 +46,6 @@ export function SettingsDialog() {
   
   const { user, logout } = useAuth();
   
-  const [isOpen, setIsOpen] = useState(false);
   const [tagToDelete, setTagToDelete] = useState<string | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [gDriveFolderId, setGDriveFolderId] = useState(googleDriveSettings.folderId || "");
@@ -62,6 +65,8 @@ export function SettingsDialog() {
       isEnabled: isGDriveEnabled,
       folderId: gDriveFolderId.trim() || null,
     });
+    
+    toast.success("Google Drive settings updated");
   };
   
   const handleSyncNow = async () => {
@@ -93,17 +98,12 @@ export function SettingsDialog() {
   };
   
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        <Button variant="ghost" size="icon">
-          <Settings size={18} />
-        </Button>
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Settings</DialogTitle>
           <DialogDescription>
-            Configure your Note Warden experience
+            Configure your Noteflow experience
           </DialogDescription>
         </DialogHeader>
         

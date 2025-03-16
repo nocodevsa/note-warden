@@ -5,7 +5,6 @@ import { toast } from "sonner";
 import { v4 as uuidv4 } from "uuid";
 import { AuthContext } from "./auth-context";
 
-// Defining the history state for undo/redo functionality
 interface HistoryState {
   past: Array<NoteType[]>;
   present: NoteType[];
@@ -77,14 +76,12 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
   const [isEditing, setIsEditing] = useState(false);
   const [selectedNoteIds, setSelectedNoteIds] = useState<string[]>([]);
   
-  // Google Drive integration settings
   const [googleDriveSettings, setGoogleDriveSettings] = useState({
     isEnabled: false,
     folderId: null as string | null,
     lastSyncedAt: null as string | null,
   });
   
-  // Initialize history state for undo/redo
   const [noteHistory, setNoteHistory] = useState<HistoryState>({
     past: [],
     present: [],
@@ -94,7 +91,6 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
   const { user } = useContext(AuthContext) || { user: null };
   const userPrefix = user ? `user_${user.id}_` : '';
 
-  // Load data from localStorage on mount
   useEffect(() => {
     const storedNotes = localStorage.getItem(`${userPrefix}${LOCAL_STORAGE_KEYS.NOTES}`);
     const storedFolders = localStorage.getItem(`${userPrefix}${LOCAL_STORAGE_KEYS.FOLDERS}`);
@@ -133,7 +129,6 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
     if (storedGDriveSettings) setGoogleDriveSettings(JSON.parse(storedGDriveSettings));
   }, [userPrefix]);
 
-  // Save data to localStorage whenever it changes
   useEffect(() => {
     if (notes.length > 0) localStorage.setItem(`${userPrefix}${LOCAL_STORAGE_KEYS.NOTES}`, JSON.stringify(notes));
     if (folders.length > 0) localStorage.setItem(`${userPrefix}${LOCAL_STORAGE_KEYS.FOLDERS}`, JSON.stringify(folders));
@@ -144,7 +139,6 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem(`${userPrefix}${LOCAL_STORAGE_KEYS.GOOGLE_DRIVE_SETTINGS}`, JSON.stringify(googleDriveSettings));
   }, [notes, folders, tags, activeNoteId, activeFolderId, defaultNoteBackground, googleDriveSettings, userPrefix]);
 
-  // Update history when notes change
   useEffect(() => {
     if (noteHistory.present !== notes && notes.length > 0) {
       setNoteHistory({
@@ -154,6 +148,24 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
       });
     }
   }, [notes]);
+
+  useEffect(() => {
+    const autoSyncWithGoogleDrive = async () => {
+      if (googleDriveSettings.isEnabled && googleDriveSettings.folderId) {
+        try {
+          await syncWithGoogleDrive();
+        } catch (error) {
+          console.error("Auto-sync failed:", error);
+        }
+      }
+    };
+
+    const timeoutId = setTimeout(() => {
+      autoSyncWithGoogleDrive();
+    }, 5000);
+
+    return () => clearTimeout(timeoutId);
+  }, [notes, googleDriveSettings.isEnabled, googleDriveSettings.folderId]);
 
   const undoNoteChange = () => {
     if (noteHistory.past.length === 0) return;
@@ -184,7 +196,6 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
     setNotes(next);
   };
   
-  // Toggle note selection for multi-select functionality
   const toggleNoteSelection = (id: string) => {
     setSelectedNoteIds(prev => {
       if (prev.includes(id)) {
@@ -195,16 +206,13 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
     });
   };
   
-  // Clear note selection
   const clearNoteSelection = () => {
     setSelectedNoteIds([]);
   };
   
-  // Delete multiple notes at once
   const deleteMultipleNotes = (ids: string[]) => {
     setNotes(prevNotes => prevNotes.filter(note => !ids.includes(note.id)));
     
-    // If the active note was deleted, clear activeNoteId
     if (activeNoteId && ids.includes(activeNoteId)) {
       setActiveNoteId(null);
     }
@@ -230,6 +238,7 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
 
     setNotes((prevNotes) => [newNote, ...prevNotes]);
     setActiveNoteId(newNote.id);
+    
     return newNote.id;
   };
 
@@ -237,7 +246,6 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
     setNotes((prevNotes) =>
       prevNotes.map((note) => {
         if (note.id === id) {
-          // If content is being updated, store previous version
           const shouldSaveVersion = 
             updates.content !== undefined && 
             note.content !== updates.content;
@@ -255,7 +263,6 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
             ...note,
             ...updates,
             updatedAt: new Date().toISOString(),
-            // Increment version if content changed
             version: shouldSaveVersion ? (note.version || 1) + 1 : note.version,
             previousVersions,
           };
@@ -268,7 +275,6 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
   const deleteNote = (id: string) => {
     setNotes((prevNotes) => prevNotes.filter((note) => note.id !== id));
     
-    // If the deleted note was active, clear activeNoteId
     if (activeNoteId === id) {
       setActiveNoteId(null);
     }
@@ -277,7 +283,6 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
   const deleteNotes = (ids: string[]) => {
     setNotes((prevNotes) => prevNotes.filter((note) => !ids.includes(note.id)));
     
-    // If the active note was deleted, clear activeNoteId
     if (activeNoteId && ids.includes(activeNoteId)) {
       setActiveNoteId(null);
     }
@@ -318,10 +323,8 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
   };
 
   const deleteTag = (id: string) => {
-    // Remove the tag
     setTags((prevTags) => prevTags.filter((tag) => tag.id !== id));
     
-    // Remove tag from all notes that have it
     setNotes(prevNotes => 
       prevNotes.map(note => {
         if (note.tags && note.tags.includes(id)) {
@@ -409,10 +412,6 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
     }
     
     try {
-      // In a real app, this would interact with Google Drive API
-      // For this demo, we'll just simulate a successful sync
-      
-      // Update the last synced timestamp
       setGoogleDriveSettings(prev => ({
         ...prev,
         lastSyncedAt: new Date().toISOString()
