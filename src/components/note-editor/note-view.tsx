@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { MarkdownRenderer } from "./markdown-renderer";
-import { Edit, Eye, Save, Trash, Pin, PinOff, ArrowLeft, Image, Link, Bold, Italic, List, Code, Table, Lock, Globe, History, ExternalLink, Download } from "lucide-react";
+import { Edit, Eye, Save, Trash, Pin, PinOff, ArrowLeft, Image, Link, Bold, Italic, List, Code, Table, Lock, Globe, History, ExternalLink, Download, Undo2, Redo2, CheckSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -27,15 +27,35 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { TagPicker } from "@/components/tag-picker/tag-picker";
+import { BackgroundPicker } from "./background-picker";
 
 interface NoteViewProps {
   noteId?: string;
 }
 
 export function NoteView({ noteId }: NoteViewProps) {
-  const { notes, updateNote, isEditing, setIsEditing, deleteNote, togglePinned, setActiveNoteId } = useNotes();
+  const { 
+    notes, 
+    updateNote, 
+    isEditing, 
+    setIsEditing, 
+    deleteNote, 
+    togglePinned, 
+    setActiveNoteId, 
+    undoNoteChange, 
+    redoNoteChange,
+    noteHistory,
+    selectedNoteIds,
+    toggleNoteSelection,
+    deleteMultipleNotes,
+    clearNoteSelection,
+    tags
+  } = useNotes();
+  
   const activeNoteId = noteId || notes[0]?.id;
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isMultiDeleteDialogOpen, setIsMultiDeleteDialogOpen] = useState(false);
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [isVersionDialogOpen, setIsVersionDialogOpen] = useState(false);
@@ -53,6 +73,9 @@ export function NoteView({ noteId }: NoteViewProps) {
   const titleInputRef = useRef<HTMLInputElement>(null);
   const contentTextareaRef = useRef<HTMLTextAreaElement>(null);
   const isMobile = useIsMobile();
+  
+  const isMultiSelectActive = selectedNoteIds.length > 0;
+  const isCurrentNoteSelected = activeNoteId ? selectedNoteIds.includes(activeNoteId) : false;
 
   useEffect(() => {
     if (activeNote) {
@@ -107,6 +130,13 @@ export function NoteView({ noteId }: NoteViewProps) {
     if (activeNoteId) {
       deleteNote(activeNoteId);
       setIsDeleteDialogOpen(false);
+    }
+  };
+  
+  const handleMultiDelete = () => {
+    if (selectedNoteIds.length > 0) {
+      deleteMultipleNotes(selectedNoteIds);
+      setIsMultiDeleteDialogOpen(false);
     }
   };
   
@@ -356,110 +386,190 @@ export function NoteView({ noteId }: NoteViewProps) {
               className="w-full text-lg font-semibold border-none focus-visible:ring-0 px-0"
             />
           ) : (
-            <h1 className="text-xl font-semibold truncate">
+            <h1 className="text-xl font-semibold truncate flex items-center gap-1">
               {activeNote.title || "Untitled Note"}
               {activeNote.isPasswordProtected && <Lock size={14} className="inline-block ml-2 text-muted-foreground" />}
               {activeNote.isPublic && <Globe size={14} className="inline-block ml-2 text-muted-foreground" />}
+              
+              {isMultiSelectActive && (
+                <button 
+                  className={cn(
+                    "ml-2 p-1 rounded",
+                    isCurrentNoteSelected ? "text-primary" : "text-muted-foreground"
+                  )}
+                  onClick={() => toggleNoteSelection(activeNoteId)}
+                >
+                  <CheckSquare size={18} />
+                </button>
+              )}
             </h1>
           )}
         </div>
         
         <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => togglePinned(activeNoteId)}
-            aria-label={activeNote.isPinned ? "Unpin note" : "Pin note"}
-            title={activeNote.isPinned ? "Unpin note" : "Pin note"}
-          >
-            {activeNote.isPinned ? <PinOff size={18} /> : <Pin size={18} />}
-          </Button>
-          
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <ExternalLink size={18} />
+          {isMultiSelectActive && selectedNoteIds.length > 0 ? (
+            <>
+              <span className="text-sm text-muted-foreground mr-1">
+                {selectedNoteIds.length} selected
+              </span>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsMultiDeleteDialogOpen(true)}
+                className="text-destructive"
+                aria-label="Delete Selected"
+                title="Delete Selected"
+              >
+                <Trash size={18} />
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setIsShareDialogOpen(true)}>
-                <Globe size={16} className="mr-2" />
-                Share Note
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setIsPasswordDialogOpen(true)}>
-                <Lock size={16} className="mr-2" />
-                Password Protect
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => setIsExportDialogOpen(true)}>
-                <Download size={16} className="mr-2" />
-                Export Note
-              </DropdownMenuItem>
-              {(activeNote.previousVersions?.length || 0) > 0 && (
-                <DropdownMenuItem onClick={() => setIsVersionDialogOpen(true)}>
-                  <History size={16} className="mr-2" />
-                  Version History
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-          
-          {isEditing ? (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleSave}
-              aria-label="Save"
-              title="Save"
-            >
-              <Save size={18} />
-            </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={clearNoteSelection}
+                aria-label="Cancel"
+                title="Cancel"
+              >
+                <Eye size={18} />
+              </Button>
+            </>
           ) : (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setIsEditing(true)}
-              aria-label="Edit"
-              title="Edit"
-            >
-              <Edit size={18} />
-            </Button>
+            <>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => toggleNoteSelection(activeNoteId)}
+                aria-label="Multi-select"
+                title="Select Multiple Notes"
+              >
+                <CheckSquare size={18} />
+              </Button>
+              
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => togglePinned(activeNoteId)}
+                aria-label={activeNote.isPinned ? "Unpin note" : "Pin note"}
+                title={activeNote.isPinned ? "Unpin note" : "Pin note"}
+              >
+                {activeNote.isPinned ? <PinOff size={18} /> : <Pin size={18} />}
+              </Button>
+              
+              <BackgroundPicker noteId={activeNoteId} />
+              
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon">
+                    <ExternalLink size={18} />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setIsShareDialogOpen(true)}>
+                    <Globe size={16} className="mr-2" />
+                    Share Note
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setIsPasswordDialogOpen(true)}>
+                    <Lock size={16} className="mr-2" />
+                    Password Protect
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setIsExportDialogOpen(true)}>
+                    <Download size={16} className="mr-2" />
+                    Export Note
+                  </DropdownMenuItem>
+                  {(activeNote.previousVersions?.length || 0) > 0 && (
+                    <DropdownMenuItem onClick={() => setIsVersionDialogOpen(true)}>
+                      <History size={16} className="mr-2" />
+                      Version History
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              
+              {isEditing ? (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleSave}
+                    aria-label="Save"
+                    title="Save"
+                  >
+                    <Save size={18} />
+                  </Button>
+                  
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      if (activeNote) {
+                        setTitle(activeNote.title);
+                        setContent(activeNote.content);
+                      }
+                      setIsEditing(false);
+                    }}
+                    aria-label="Cancel"
+                    title="Cancel"
+                  >
+                    <Eye size={18} />
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setIsEditing(true)}
+                  aria-label="Edit"
+                  title="Edit"
+                >
+                  <Edit size={18} />
+                </Button>
+              )}
+              
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsDeleteDialogOpen(true)}
+                className="text-destructive"
+                aria-label="Delete"
+                title="Delete"
+              >
+                <Trash size={18} />
+              </Button>
+            </>
           )}
-          
-          {isEditing ? (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => {
-                if (activeNote) {
-                  setTitle(activeNote.title);
-                  setContent(activeNote.content);
-                }
-                setIsEditing(false);
-              }}
-              aria-label="Cancel"
-              title="Cancel"
-            >
-              <Eye size={18} />
-            </Button>
-          ) : null}
-          
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setIsDeleteDialogOpen(true)}
-            className="text-destructive"
-            aria-label="Delete"
-            title="Delete"
-          >
-            <Trash size={18} />
-          </Button>
         </div>
       </div>
+      
+      {!isEditing && (
+        <div className="px-4 py-2 border-b border-border">
+          <TagPicker noteId={activeNoteId} tags={activeNote.tags || []} />
+        </div>
+      )}
       
       {/* Toolbar for markdown formatting */}
       {isEditing && (
         <div className="flex items-center gap-1 p-1 border-b border-border overflow-x-auto">
+          <div className="flex items-center mr-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={undoNoteChange}
+              disabled={noteHistory.past.length === 0}
+              title="Undo"
+            >
+              <Undo2 size={16} />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={redoNoteChange}
+              disabled={noteHistory.future.length === 0}
+              title="Redo"
+            >
+              <Redo2 size={16} />
+            </Button>
+          </div>
+          
           <Button
             variant="ghost"
             size="icon"
@@ -546,7 +656,10 @@ export function NoteView({ noteId }: NoteViewProps) {
             className="w-full h-full resize-none border-none rounded-none focus-visible:ring-0 font-mono text-sm p-6"
           />
         ) : (
-          <MarkdownRenderer content={content} />
+          <MarkdownRenderer 
+            content={content} 
+            backgroundColor={activeNote.backgroundColor}
+          />
         )}
       </div>
       
@@ -729,6 +842,27 @@ export function NoteView({ noteId }: NoteViewProps) {
               onClick={handleDelete}
             >
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      
+      {/* Multiple Delete Confirmation Dialog */}
+      <AlertDialog open={isMultiDeleteDialogOpen} onOpenChange={setIsMultiDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {selectedNoteIds.length} notes?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete {selectedNoteIds.length} selected notes.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={handleMultiDelete}
+            >
+              Delete All
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

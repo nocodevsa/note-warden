@@ -1,4 +1,3 @@
-
 export type NoteType = {
   id: string;
   title: string;
@@ -76,3 +75,10 @@ export type AppSettingsType = {
   defaultView: 'list' | 'grid' | 'dual';
   isAutoSyncEnabled: boolean;
 };
+
+export type NoteBackgroundType = {
+  color: string;
+  name: string;
+};
+
+export type NoteBackground = string;

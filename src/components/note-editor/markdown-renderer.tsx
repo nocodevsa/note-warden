@@ -9,9 +9,10 @@ import { toast } from "sonner";
 interface MarkdownRendererProps {
   content: string;
   className?: string;
+  backgroundColor?: string;
 }
 
-function MarkdownRendererComponent({ content, className }: MarkdownRendererProps) {
+function MarkdownRendererComponent({ content, className, backgroundColor }: MarkdownRendererProps) {
   const { notes, setActiveNoteId } = useNotes();
   // Extract URLs from markdown content for link previews
   const [urls, setUrls] = useState<string[]>([]);
@@ -68,6 +69,7 @@ function MarkdownRendererComponent({ content, className }: MarkdownRendererProps
     <div 
       className={cn("note-content prose dark:prose-invert max-w-full", className)}
       onClick={handleLinkClick}
+      style={{ backgroundColor }}
     >
       <div className="w-full">
         <ReactMarkdown>
