@@ -1,243 +1,255 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { FolderItem } from "./folder-item";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { useNotes } from "@/context/notes-context";
-import { ChevronLeft, Files, FolderPlus, PanelLeft, Plus, Settings, Star, Tag, History, CloudUpload, Monitor } from "lucide-react";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Separator } from "@/components/ui/separator";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/context/auth-context";
+import { FolderItem } from "@/components/sidebar/folder-item";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { FolderColorPicker } from "./folder-color-picker";
 import { FolderIconPicker } from "./folder-icon-picker";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-interface SidebarProps {
-  collapsed: boolean;
-  onCollapse: () => void;
-}
+import {
+  ChevronRight,
+  ChevronLeft,
+  PlusCircle,
+  Folder,
+  FilePlus,
+  LogOut,
+  Settings,
+  Search,
+} from "lucide-react";
+
 export function Sidebar({
-  collapsed,
-  onCollapse
-}: SidebarProps) {
-  const {
-    folders,
-    notes,
-    createNote,
-    createFolder,
-    activeNoteId,
-    activeFolderId,
-    setActiveFolderId,
-    setActiveNoteId,
-    updateFolder
-  } = useNotes();
-  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
-  const [newFolderName, setNewFolderName] = useState("");
-  const [folderColor, setFolderColor] = useState("");
-  const [folderIcon, setFolderIcon] = useState("folder");
-  const [syncProvider, setSyncProvider] = useState<string>("none");
-  const [activeSidebarTab, setActiveSidebarTab] = useState("folders");
-  const pinnedNotes = notes.filter(note => note.isPinned);
-  const allNotes = activeFolderId === null ? notes.filter(note => !note.folderId) : notes.filter(note => note.folderId === activeFolderId);
+  collapsed = false,
+  onCollapse,
+}: {
+  collapsed?: boolean;
+  onCollapse?: () => void;
+}) {
+  const { folders, createFolder, createNote, activeFolderId, setActiveFolderId } = useNotes();
+  const { user, logout } = useAuth();
+  const [isAddingFolder, setIsAddingFolder] = useState(false);
+  const [folderName, setFolderName] = useState("");
+  const [selectedColor, setSelectedColor] = useState<string>("#4F46E5");
+  const [selectedIcon, setSelectedIcon] = useState<string>("folder");
 
-  // Get root folders (no parent ID)
-  const rootFolders = folders.filter(folder => !folder.parentId);
   const handleCreateFolder = () => {
-    if (newFolderName.trim()) {
-      const folderId = createFolder(newFolderName.trim());
+    const trimmedName = folderName.trim();
+    if (!trimmedName) {
+      toast.error("Folder name cannot be empty");
+      return;
+    }
 
-      // Apply customizations
-      if (folderColor || folderIcon !== "folder") {
-        updateFolder(folderId, newFolderName.trim(), {
-          color: folderColor,
-          icon: folderIcon
-        });
-      }
-      setNewFolderName("");
-      setFolderColor("");
-      setFolderIcon("folder");
-      setIsCreatingFolder(false);
-    }
+    createFolder({
+      name: trimmedName,
+      color: selectedColor,
+      icon: selectedIcon,
+    });
+
+    setIsAddingFolder(false);
+    setFolderName("");
+    toast.success(`Folder "${trimmedName}" created`);
   };
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      handleCreateFolder();
-    }
+
+  const handleCreateNote = () => {
+    createNote();
+    toast.success("New note created");
   };
-  const handleSyncChange = (provider: string) => {
-    setSyncProvider(provider);
-    toast.success(`Sync provider changed to ${provider === "none" ? "none" : provider}`);
-    // In a real app, we would implement actual sync functionality here
+
+  const handleLogout = () => {
+    logout();
+    toast.success("Logged out successfully");
   };
-  if (collapsed) {
-    return <div className="h-screen w-12 bg-sidebar border-r border-sidebar-border flex flex-col items-center py-4 gap-4">
-        <Button variant="ghost" size="icon" onClick={onCollapse} aria-label="Expand sidebar">
-          <PanelLeft size={20} />
-        </Button>
-        <Separator className="w-8" />
-        <Button variant="ghost" size="icon" onClick={() => createNote()} className="mt-2" aria-label="Create new note">
-          <Plus size={20} />
-        </Button>
-      </div>;
-  }
-  return <div className="h-screen w-64 bg-sidebar border-r border-sidebar-border flex flex-col">
-      <div className="p-4 flex items-center justify-between">
-        <h1 className="font-semibold text-lg text-sidebar-foreground">Noteflow</h1>
-        <Button variant="ghost" size="icon" onClick={onCollapse} aria-label="Collapse sidebar">
-          <ChevronLeft size={18} />
+
+  return (
+    <div
+      className={cn(
+        "group border-r border-border relative flex flex-col h-full bg-sidebar",
+        collapsed ? "w-16" : "w-60"
+      )}
+    >
+      <div className="flex items-center h-16 px-4 border-b border-border">
+        <div className="flex items-center flex-1 gap-2">
+          {!collapsed && (
+            <div className="font-semibold text-lg flex items-center gap-2">
+              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-medium">
+                N
+              </div>
+              <span>Noteflow</span>
+            </div>
+          )}
+        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          onClick={onCollapse}
+        >
+          {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
         </Button>
       </div>
-      
-      <div className="p-2 flex gap-2">
-        <Button onClick={() => createNote()} className="flex-1" variant="default">
-          <Plus size={16} className="mr-2" /> New Note
+
+      <div className="flex items-center justify-between p-4">
+        <Button
+          variant="secondary"
+          size="sm"
+          className={cn(
+            "flex-1 justify-start gap-2",
+            collapsed && "justify-center px-0"
+          )}
+          onClick={handleCreateNote}
+        >
+          <FilePlus size={16} />
+          {!collapsed && <span>New Note</span>}
         </Button>
-        <Button variant="outline" size="icon" onClick={() => setIsCreatingFolder(true)} aria-label="Create new folder">
-          <FolderPlus size={16} />
+        <Button
+          variant="ghost"
+          size="icon"
+          className={cn("h-8 w-8", collapsed && "hidden")}
+          onClick={() => setIsAddingFolder(true)}
+        >
+          <PlusCircle size={16} />
         </Button>
       </div>
-      
-      <Tabs value={activeSidebarTab} onValueChange={setActiveSidebarTab} className="flex-1 flex flex-col">
-        <TabsList className="mx-2 mb-1 grid grid-cols-3 h-9">
-          <TabsTrigger value="folders" className="text-xs">Folders</TabsTrigger>
-          <TabsTrigger value="tags" className="text-xs">Tags</TabsTrigger>
-          <TabsTrigger value="recent" className="text-xs">Recent</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="folders" className="flex-1 overflow-y-auto px-2 space-y-1">
-          <Button variant="ghost" className={cn("w-full justify-start text-sm font-medium", activeFolderId === null && !activeNoteId && "bg-sidebar-accent")} onClick={() => {
-          setActiveFolderId(null);
-          setActiveNoteId(null);
-        }}>
-            <Files size={16} className="mr-2" />
-            All Notes
-          </Button>
-          
-          {pinnedNotes.length > 0 && <div className="mt-2">
-              <div className="flex items-center px-2 mb-1">
-                <Star size={14} className="mr-2 text-muted-foreground" />
-                <span className="text-xs text-muted-foreground">Pinned</span>
-              </div>
-              <div className="pl-6 space-y-1">
-                {pinnedNotes.map(note => <div key={note.id} className={cn("text-sm px-2 py-1 rounded-md cursor-pointer truncate", activeNoteId === note.id ? "bg-sidebar-accent font-medium" : "hover:bg-sidebar-accent/50", "transition-colors")} onClick={() => setActiveNoteId(note.id)}>
-                    {note.title || "Untitled Note"}
-                  </div>)}
-              </div>
-            </div>}
-          
-          <div className="mt-4">
-            <div className="text-xs font-medium text-muted-foreground px-2 mb-1">FOLDERS</div>
-            {rootFolders.map(folder => <FolderItem key={folder.id} id={folder.id} name={folder.name} isActive={activeFolderId === folder.id} color={folder.color} icon={folder.icon} />)}
-          </div>
-        </TabsContent>
-        
-        <TabsContent value="tags" className="flex-1 overflow-y-auto px-2">
-          <div className="text-xs font-medium text-muted-foreground px-2 mb-2">TAGS</div>
-          <div className="flex flex-wrap gap-2 p-2">
-            <Badge variant="outline" className="bg-folder-red/20 hover:bg-folder-red/30 cursor-pointer">
-              Important
-            </Badge>
-            <Badge variant="outline" className="bg-folder-blue/20 hover:bg-folder-blue/30 cursor-pointer">
-              Work
-            </Badge>
-            <Badge variant="outline" className="bg-folder-green/20 hover:bg-folder-green/30 cursor-pointer">
-              Personal
-            </Badge>
-            <Badge variant="outline" className="bg-folder-purple/20 hover:bg-folder-purple/30 cursor-pointer">
-              Ideas
-            </Badge>
-          </div>
-          <div className="p-4 text-center text-muted-foreground text-sm">
-            Tags feature coming soon...
-          </div>
-        </TabsContent>
-        
-        <TabsContent value="recent" className="flex-1 overflow-y-auto px-2">
-          <div className="text-xs font-medium text-muted-foreground px-2 mb-2">RECENTLY EDITED</div>
-          <div className="space-y-1">
-            {notes.slice(0, 10).map(note => <div key={note.id} className={cn("text-sm px-2 py-1.5 rounded-md cursor-pointer", activeNoteId === note.id ? "bg-sidebar-accent font-medium" : "hover:bg-sidebar-accent/50", "transition-colors")} onClick={() => setActiveNoteId(note.id)}>
-                <div className="flex justify-between items-center">
-                  <span className="truncate">{note.title || "Untitled Note"}</span>
-                  <span className="text-xs text-muted-foreground whitespace-nowrap ml-2">
-                    {new Date(note.updatedAt).toLocaleDateString()}
-                  </span>
-                </div>
-              </div>)}
-          </div>
-        </TabsContent>
-      </Tabs>
-      
-      <div className="p-2 border-t border-sidebar-border flex items-center justify-between">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" aria-label="Settings">
-              <Settings size={18} />
+
+      <div className="flex-1 overflow-hidden">
+        <ScrollArea className="h-full">
+          <div className="space-y-1 p-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className={cn(
+                "w-full justify-start",
+                !activeFolderId ? "bg-accent" : "",
+                collapsed && "justify-center px-0"
+              )}
+              onClick={() => setActiveFolderId(null)}
+            >
+              <Search
+                size={16}
+                className={cn("mr-2", collapsed && "mr-0")}
+              />
+              {!collapsed && <span>All Notes</span>}
             </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Settings</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>
-              <Monitor size={16} className="mr-2" />
-              Appearance
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              <CloudUpload size={16} className="mr-2" />
-              Sync Settings
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>
-              <History size={16} className="mr-2" />
-              Backup &amp; Restore
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-        
-        <Select value={syncProvider} onValueChange={handleSyncChange}>
-          <SelectTrigger className="w-[130px] h-9">
-            <SelectValue placeholder="Sync: Off" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">Sync: Off</SelectItem>
-            <SelectItem value="google-drive">Google Drive</SelectItem>
-            <SelectItem value="dropbox">Dropbox</SelectItem>
-          </SelectContent>
-        </Select>
-        
-        <ThemeToggle />
+
+            <div className="mt-6">
+              {!collapsed && (
+                <h3 className="mb-2 px-4 text-xs font-medium text-muted-foreground">
+                  FOLDERS
+                </h3>
+              )}
+              <div className="space-y-1">
+                {folders.map((folder) => (
+                  <FolderItem
+                    key={folder.id}
+                    folder={folder}
+                    collapsed={collapsed}
+                    activeFolderId={activeFolderId}
+                    onSelectFolder={(id) => setActiveFolderId(id)}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        </ScrollArea>
       </div>
-      
-      <Dialog open={isCreatingFolder} onOpenChange={setIsCreatingFolder}>
-        <DialogContent className="sm:max-w-[425px]">
+
+      <div className="sticky bottom-0 mt-auto border-t border-border p-4">
+        <div className="flex flex-col gap-2">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className={cn(
+              "justify-start gap-2", 
+              collapsed && "justify-center px-0"
+            )}
+          >
+            <Settings size={16} />
+            {!collapsed && <span>Settings</span>}
+          </Button>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className={cn(
+              "justify-start gap-2 text-red-500 hover:text-red-600 hover:bg-red-100 dark:hover:bg-red-900/20", 
+              collapsed && "justify-center px-0"
+            )}
+            onClick={handleLogout}
+          >
+            <LogOut size={16} />
+            {!collapsed && <span>Logout</span>}
+          </Button>
+        </div>
+        
+        {!collapsed && user && (
+          <div className="mt-4 flex items-center gap-2 px-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground">
+              {user.name.charAt(0).toUpperCase()}
+            </div>
+            <div className="flex flex-col overflow-hidden">
+              <span className="text-sm font-medium truncate">{user.name}</span>
+              <span className="text-xs text-muted-foreground truncate">{user.email}</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <Dialog open={isAddingFolder} onOpenChange={setIsAddingFolder}>
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>Create New Folder</DialogTitle>
           </DialogHeader>
-          
-          <div className="grid gap-4 py-4">
-            <Input placeholder="Folder name" value={newFolderName} onChange={e => setNewFolderName(e.target.value)} autoFocus onKeyDown={handleKeyDown} />
-            
-            <Tabs defaultValue="icon" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="icon">Icon</TabsTrigger>
-                <TabsTrigger value="color">Color</TabsTrigger>
-              </TabsList>
-              <TabsContent value="icon" className="pt-4">
-                <FolderIconPicker value={folderIcon} onChange={setFolderIcon} />
-              </TabsContent>
-              <TabsContent value="color" className="pt-4">
-                <FolderColorPicker value={folderColor} onChange={setFolderColor} />
-              </TabsContent>
-            </Tabs>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <label
+                htmlFor="folderName"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                Folder name
+              </label>
+              <Input
+                id="folderName"
+                placeholder="Enter folder name"
+                value={folderName}
+                onChange={(e) => setFolderName(e.target.value)}
+                className="col-span-3"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium leading-none">Color</label>
+              <FolderColorPicker
+                selectedColor={selectedColor}
+                onChange={setSelectedColor}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium leading-none">Icon</label>
+              <FolderIconPicker
+                selectedIcon={selectedIcon}
+                onChange={setSelectedIcon}
+              />
+            </div>
           </div>
-          
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsCreatingFolder(false)}>Cancel</Button>
-            <Button onClick={handleCreateFolder}>Create</Button>
+            <Button
+              variant="outline"
+              onClick={() => setIsAddingFolder(false)}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleCreateFolder}>Create Folder</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>;
+    </div>
+  );
 }

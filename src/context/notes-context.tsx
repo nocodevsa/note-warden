@@ -1,8 +1,9 @@
-
-import { createContext, useContext, useEffect, useState } from "react";
-import { FolderType, NoteType, TagType } from "@/lib/types";
-import { sampleFolders, sampleNotes } from "@/lib/sample-data";
+import React, { createContext, useContext, useEffect, useState } from "react";
+import { NoteType, FolderType, TagType, NoteBackground } from "@/lib/types";
+import { sampleNotes, sampleFolders, sampleTags } from "@/lib/sample-data";
 import { toast } from "sonner";
+import { v4 as uuidv4 } from "uuid";
+import { AuthContext } from "./auth-context";
 
 type NotesContextType = {
   notes: NoteType[];
@@ -10,399 +11,215 @@ type NotesContextType = {
   tags: TagType[];
   activeNoteId: string | null;
   activeFolderId: string | null;
-  isEditing: boolean;
-  noteHistory: { past: NoteType[], future: NoteType[] };
-  selectedNoteIds: string[];
-  defaultNoteBackground: string;
+  defaultNoteBackground: NoteBackground;
   setActiveNoteId: (id: string | null) => void;
   setActiveFolderId: (id: string | null) => void;
-  setIsEditing: (isEditing: boolean) => void;
-  createNote: (folderId?: string | null) => void;
+  createNote: (folderId?: string | null) => string;
   updateNote: (id: string, updates: Partial<Omit<NoteType, "id">>) => void;
   deleteNote: (id: string) => void;
-  deleteMultipleNotes: (ids: string[]) => void;
-  createFolder: (name: string, parentId?: string | null) => string;
-  updateFolder: (id: string, name: string, updates?: Partial<Omit<FolderType, "id" | "name" | "createdAt">>) => void;
+  deleteNotes: (ids: string[]) => void;
+  createFolder: (folder: Omit<FolderType, "id" | "createdAt">) => string;
+  updateFolder: (id: string, updates: Partial<Omit<FolderType, "id">>) => void;
   deleteFolder: (id: string) => void;
-  togglePinned: (id: string) => void;
-  addAttachment: (noteId: string, attachmentUrl: string) => void;
-  removeAttachment: (noteId: string, attachmentUrl: string) => void;
-  exportNote: (id: string, format: "markdown" | "txt" | "pdf") => void;
-  createTag: (name: string, color: string) => string;
-  updateTag: (id: string, updates: Partial<Omit<TagType, "id">>) => void;
+  createTag: (tag: Omit<TagType, "id">) => string;
   deleteTag: (id: string) => void;
-  addTagToNote: (noteId: string, tagId: string) => void;
-  removeTagFromNote: (noteId: string, tagId: string) => void;
-  undoNoteChange: () => void;
-  redoNoteChange: () => void;
-  toggleNoteSelection: (id: string) => void;
-  clearNoteSelection: () => void;
-  setDefaultNoteBackground: (color: string) => void;
+  setDefaultNoteBackground: (background: NoteBackground) => void;
 };
 
 const NotesContext = createContext<NotesContextType | undefined>(undefined);
 
-const DEFAULT_TAGS: TagType[] = [
-  { id: "tag1", name: "Important", color: "#EF4444" },
-  { id: "tag2", name: "Personal", color: "#3B82F6" },
-  { id: "tag3", name: "Work", color: "#10B981" },
-];
+const LOCAL_STORAGE_KEYS = {
+  NOTES: "noteflow_notes",
+  FOLDERS: "noteflow_folders",
+  TAGS: "noteflow_tags",
+  ACTIVE_NOTE: "noteflow_active_note",
+  ACTIVE_FOLDER: "noteflow_active_folder",
+  DEFAULT_BG: "noteflow_default_bg",
+};
 
-export const NotesProvider = ({ children }: { children: React.ReactNode }) => {
-  const [notes, setNotes] = useState<NoteType[]>(() => {
-    const savedNotes = localStorage.getItem("notes");
-    return savedNotes ? JSON.parse(savedNotes) : sampleNotes;
-  });
-  
-  const [folders, setFolders] = useState<FolderType[]>(() => {
-    const savedFolders = localStorage.getItem("folders");
-    return savedFolders ? JSON.parse(savedFolders) : sampleFolders;
-  });
-  
-  const [tags, setTags] = useState<TagType[]>(() => {
-    const savedTags = localStorage.getItem("tags");
-    return savedTags ? JSON.parse(savedTags) : DEFAULT_TAGS;
-  });
-  
+export function NotesProvider({ children }: { children: React.ReactNode }) {
+  const [notes, setNotes] = useState<NoteType[]>([]);
+  const [folders, setFolders] = useState<FolderType[]>([]);
+  const [tags, setTags] = useState<TagType[]>([]);
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
   const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
-  const [noteHistory, setNoteHistory] = useState<{ past: NoteType[], future: NoteType[] }>({ past: [], future: [] });
-  const [selectedNoteIds, setSelectedNoteIds] = useState<string[]>([]);
-  const [defaultNoteBackground, setDefaultNoteBackground] = useState<string>(() => {
-    const savedBg = localStorage.getItem("defaultNoteBackground");
-    return savedBg || "#F1F0FB"; // Default soft gray
-  });
+  const [defaultNoteBackground, setDefaultNoteBackground] = useState<NoteBackground>("#FFFFFF");
 
-  useEffect(() => {
-    localStorage.setItem("notes", JSON.stringify(notes));
-  }, [notes]);
+  const { user } = useContext(AuthContext) || { user: null };
+  const userPrefix = user ? `user_${user.id}_` : '';
 
+  // Load data from localStorage on mount
   useEffect(() => {
-    localStorage.setItem("folders", JSON.stringify(folders));
-  }, [folders]);
-  
+    const storedNotes = localStorage.getItem(`${userPrefix}${LOCAL_STORAGE_KEYS.NOTES}`);
+    const storedFolders = localStorage.getItem(`${userPrefix}${LOCAL_STORAGE_KEYS.FOLDERS}`);
+    const storedTags = localStorage.getItem(`${userPrefix}${LOCAL_STORAGE_KEYS.TAGS}`);
+    const storedActiveNote = localStorage.getItem(`${userPrefix}${LOCAL_STORAGE_KEYS.ACTIVE_NOTE}`);
+    const storedActiveFolder = localStorage.getItem(`${userPrefix}${LOCAL_STORAGE_KEYS.ACTIVE_FOLDER}`);
+    const storedDefaultBg = localStorage.getItem(`${userPrefix}${LOCAL_STORAGE_KEYS.DEFAULT_BG}`);
+
+    if (storedNotes) setNotes(JSON.parse(storedNotes));
+    else setNotes(sampleNotes);
+
+    if (storedFolders) setFolders(JSON.parse(storedFolders));
+    else setFolders(sampleFolders);
+
+    if (storedTags) setTags(JSON.parse(storedTags));
+    else setTags(sampleTags);
+
+    if (storedActiveNote) setActiveNoteId(JSON.parse(storedActiveNote));
+    if (storedActiveFolder) setActiveFolderId(JSON.parse(storedActiveFolder));
+    if (storedDefaultBg) setDefaultNoteBackground(JSON.parse(storedDefaultBg));
+  }, [userPrefix]);
+
+  // Save data to localStorage whenever it changes
   useEffect(() => {
-    localStorage.setItem("tags", JSON.stringify(tags));
-  }, [tags]);
-  
-  useEffect(() => {
-    localStorage.setItem("defaultNoteBackground", defaultNoteBackground);
-  }, [defaultNoteBackground]);
+    if (notes.length > 0) localStorage.setItem(`${userPrefix}${LOCAL_STORAGE_KEYS.NOTES}`, JSON.stringify(notes));
+    if (folders.length > 0) localStorage.setItem(`${userPrefix}${LOCAL_STORAGE_KEYS.FOLDERS}`, JSON.stringify(folders));
+    if (tags.length > 0) localStorage.setItem(`${userPrefix}${LOCAL_STORAGE_KEYS.TAGS}`, JSON.stringify(tags));
+    localStorage.setItem(`${userPrefix}${LOCAL_STORAGE_KEYS.ACTIVE_NOTE}`, JSON.stringify(activeNoteId));
+    localStorage.setItem(`${userPrefix}${LOCAL_STORAGE_KEYS.ACTIVE_FOLDER}`, JSON.stringify(activeFolderId));
+    localStorage.setItem(`${userPrefix}${LOCAL_STORAGE_KEYS.DEFAULT_BG}`, JSON.stringify(defaultNoteBackground));
+  }, [notes, folders, tags, activeNoteId, activeFolderId, defaultNoteBackground, userPrefix]);
 
   const createNote = (folderId?: string | null) => {
     const newNote: NoteType = {
-      id: `n${Date.now()}`,
+      id: uuidv4(),
       title: "Untitled Note",
       content: "",
       folderId: folderId !== undefined ? folderId : activeFolderId,
       isPinned: false,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      attachments: [],
       backgroundColor: defaultNoteBackground,
-      tags: []
+      version: 1,
+      previousVersions: [],
+      tags: [],
     };
-    
-    setNotes(prev => [newNote, ...prev]);
+
+    setNotes((prevNotes) => [newNote, ...prevNotes]);
     setActiveNoteId(newNote.id);
-    setIsEditing(true);
-    toast.success("New note created");
     return newNote.id;
   };
 
   const updateNote = (id: string, updates: Partial<Omit<NoteType, "id">>) => {
-    // Add current note to history before updating
-    const currentNote = notes.find(note => note.id === id);
-    if (currentNote) {
-      setNoteHistory(prev => ({
-        past: [...prev.past, {...currentNote}],
-        future: []
-      }));
-    }
-    
-    setNotes(prev => prev.map(note => 
-      note.id === id 
-        ? { ...note, ...updates, updatedAt: new Date().toISOString() } 
-        : note
-    ));
+    setNotes((prevNotes) =>
+      prevNotes.map((note) => {
+        if (note.id === id) {
+          // If content is being updated, store previous version
+          const shouldSaveVersion = 
+            updates.content !== undefined && 
+            note.content !== updates.content;
+          
+          const previousVersions = shouldSaveVersion ? [
+            ...(note.previousVersions || []),
+            {
+              content: note.content,
+              updatedAt: note.updatedAt,
+              version: note.version || 1,
+            },
+          ] : note.previousVersions;
+
+          return {
+            ...note,
+            ...updates,
+            updatedAt: new Date().toISOString(),
+            // Increment version if content changed
+            version: shouldSaveVersion ? (note.version || 1) + 1 : note.version,
+            previousVersions,
+          };
+        }
+        return note;
+      })
+    );
   };
 
   const deleteNote = (id: string) => {
-    setNotes(prev => prev.filter(note => note.id !== id));
+    setNotes((prevNotes) => prevNotes.filter((note) => note.id !== id));
+    
+    // If the deleted note was active, clear activeNoteId
     if (activeNoteId === id) {
       setActiveNoteId(null);
     }
-    // Remove from selection if present
-    setSelectedNoteIds(prev => prev.filter(noteId => noteId !== id));
-    toast.success("Note deleted");
   };
-  
-  const deleteMultipleNotes = (ids: string[]) => {
-    setNotes(prev => prev.filter(note => !ids.includes(note.id)));
+
+  const deleteNotes = (ids: string[]) => {
+    setNotes((prevNotes) => prevNotes.filter((note) => !ids.includes(note.id)));
+    
+    // If the active note was deleted, clear activeNoteId
     if (activeNoteId && ids.includes(activeNoteId)) {
       setActiveNoteId(null);
     }
-    setSelectedNoteIds([]);
+    
     toast.success(`${ids.length} notes deleted`);
   };
 
-  const createFolder = (name: string, parentId?: string | null) => {
+  const createFolder = (folder: Omit<FolderType, "id" | "createdAt">) => {
     const newFolder: FolderType = {
-      id: `f${Date.now()}`,
-      name,
-      parentId: parentId || null,
+      id: uuidv4(),
+      ...folder,
       createdAt: new Date().toISOString(),
     };
-    setFolders(prev => [...prev, newFolder]);
-    toast.success("Folder created");
+    setFolders((prevFolders) => [newFolder, ...prevFolders]);
     return newFolder.id;
   };
 
-  const updateFolder = (id: string, name: string, updates?: Partial<Omit<FolderType, "id" | "name" | "createdAt">>) => {
-    setFolders(prev => prev.map(folder => 
-      folder.id === id ? { ...folder, name, ...updates } : folder
-    ));
-    toast.success("Folder updated");
+  const updateFolder = (id: string, updates: Partial<Omit<FolderType, "id">>) => {
+    setFolders((prevFolders) =>
+      prevFolders.map((folder) =>
+        folder.id === id ? { ...folder, ...updates } : folder
+      )
+    );
   };
 
   const deleteFolder = (id: string) => {
-    setFolders(prev => prev.filter(folder => folder.id !== id));
-    setNotes(prev => prev.map(note => 
-      note.folderId === id ? { ...note, folderId: null } : note
-    ));
-    if (activeFolderId === id) {
-      setActiveFolderId(null);
-    }
-    toast.success("Folder deleted");
+    setFolders((prevFolders) => prevFolders.filter((folder) => folder.id !== id));
   };
 
-  const togglePinned = (id: string) => {
-    setNotes(prev => prev.map(note => 
-      note.id === id ? { ...note, isPinned: !note.isPinned } : note
-    ));
-  };
-  
-  const addAttachment = (noteId: string, attachmentUrl: string) => {
-    setNotes(prev => prev.map(note => {
-      if (note.id === noteId) {
-        const attachments = note.attachments || [];
-        return {
-          ...note,
-          attachments: [...attachments, attachmentUrl],
-          updatedAt: new Date().toISOString()
-        };
-      }
-      return note;
-    }));
-  };
-  
-  const removeAttachment = (noteId: string, attachmentUrl: string) => {
-    setNotes(prev => prev.map(note => {
-      if (note.id === noteId && note.attachments) {
-        return {
-          ...note,
-          attachments: note.attachments.filter(url => url !== attachmentUrl),
-          updatedAt: new Date().toISOString()
-        };
-      }
-      return note;
-    }));
-  };
-  
-  const exportNote = (id: string, format: "markdown" | "txt" | "pdf") => {
-    const note = notes.find(n => n.id === id);
-    if (!note) return;
-    
-    if (format === "markdown" || format === "txt") {
-      // Create a blob with the content
-      const content = format === "markdown" 
-        ? note.content 
-        : note.content.replace(/[#*_~`]/g, ''); // Strip markdown for txt
-      
-      const blob = new Blob([content], { type: "text/plain" });
-      const url = URL.createObjectURL(blob);
-      
-      // Create a link and trigger download
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${note.title || "Untitled Note"}.${format}`;
-      document.body.appendChild(a);
-      a.click();
-      
-      // Clean up
-      URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-      toast.success(`Note exported as ${format.toUpperCase()}`);
-    } else if (format === "pdf") {
-      toast.info("PDF export is not implemented in this demo");
-      // Would normally use a library like jsPDF here
-    }
-  };
-  
-  // Tag functionality
-  const createTag = (name: string, color: string) => {
+  const createTag = (tag: Omit<TagType, "id">) => {
     const newTag: TagType = {
-      id: `tag-${Date.now()}`,
-      name,
-      color
+      id: uuidv4(),
+      ...tag,
     };
-    setTags(prev => [...prev, newTag]);
-    toast.success(`Tag "${name}" created`);
+    setTags((prevTags) => [newTag, ...prevTags]);
     return newTag.id;
   };
-  
-  const updateTag = (id: string, updates: Partial<Omit<TagType, "id">>) => {
-    setTags(prev => prev.map(tag => 
-      tag.id === id ? { ...tag, ...updates } : tag
-    ));
-    toast.success("Tag updated");
-  };
-  
+
   const deleteTag = (id: string) => {
-    setTags(prev => prev.filter(tag => tag.id !== id));
-    // Remove tag from all notes that have it
-    setNotes(prev => prev.map(note => ({
-      ...note,
-      tags: note.tags?.filter(tagId => tagId !== id) || []
-    })));
-    toast.success("Tag deleted");
+    setTags((prevTags) => prevTags.filter((tag) => tag.id !== id));
   };
-  
-  const addTagToNote = (noteId: string, tagId: string) => {
-    setNotes(prev => prev.map(note => {
-      if (note.id === noteId) {
-        const tags = note.tags || [];
-        if (!tags.includes(tagId)) {
-          return {
-            ...note,
-            tags: [...tags, tagId],
-            updatedAt: new Date().toISOString()
-          };
-        }
-      }
-      return note;
-    }));
-  };
-  
-  const removeTagFromNote = (noteId: string, tagId: string) => {
-    setNotes(prev => prev.map(note => {
-      if (note.id === noteId && note.tags) {
-        return {
-          ...note,
-          tags: note.tags.filter(id => id !== tagId),
-          updatedAt: new Date().toISOString()
-        };
-      }
-      return note;
-    }));
-  };
-  
-  // Undo/Redo functionality
-  const undoNoteChange = () => {
-    if (noteHistory.past.length === 0) return;
-    
-    const previous = noteHistory.past[noteHistory.past.length - 1];
-    const current = notes.find(note => note.id === previous.id);
-    
-    if (current) {
-      // Move current state to future
-      setNoteHistory(prev => ({
-        past: prev.past.slice(0, -1),
-        future: [{ ...current }, ...prev.future]
-      }));
-      
-      // Restore previous state
-      setNotes(prev => prev.map(note => 
-        note.id === previous.id ? { ...previous } : note
-      ));
-      
-      toast.info("Undid last change");
-    }
-  };
-  
-  const redoNoteChange = () => {
-    if (noteHistory.future.length === 0) return;
-    
-    const next = noteHistory.future[0];
-    const current = notes.find(note => note.id === next.id);
-    
-    if (current) {
-      // Move current state to past
-      setNoteHistory(prev => ({
-        past: [...prev.past, { ...current }],
-        future: prev.future.slice(1)
-      }));
-      
-      // Apply future state
-      setNotes(prev => prev.map(note => 
-        note.id === next.id ? { ...next } : note
-      ));
-      
-      toast.info("Redid last change");
-    }
-  };
-  
-  // Note selection functionality
-  const toggleNoteSelection = (id: string) => {
-    setSelectedNoteIds(prev => 
-      prev.includes(id) 
-        ? prev.filter(noteId => noteId !== id) 
-        : [...prev, id]
-    );
-  };
-  
-  const clearNoteSelection = () => {
-    setSelectedNoteIds([]);
+
+  const value = {
+    notes,
+    folders,
+    tags,
+    activeNoteId,
+    activeFolderId,
+    defaultNoteBackground,
+    setActiveNoteId,
+    setActiveFolderId,
+    createNote,
+    updateNote,
+    deleteNote,
+    deleteNotes,
+    createFolder,
+    updateFolder,
+    deleteFolder,
+    createTag,
+    deleteTag,
+    setDefaultNoteBackground,
   };
 
   return (
-    <NotesContext.Provider
-      value={{
-        notes,
-        folders,
-        tags,
-        activeNoteId,
-        activeFolderId,
-        isEditing,
-        noteHistory,
-        selectedNoteIds,
-        defaultNoteBackground,
-        setActiveNoteId,
-        setActiveFolderId,
-        setIsEditing,
-        createNote,
-        updateNote,
-        deleteNote,
-        deleteMultipleNotes,
-        createFolder,
-        updateFolder,
-        deleteFolder,
-        togglePinned,
-        addAttachment,
-        removeAttachment,
-        exportNote,
-        createTag,
-        updateTag,
-        deleteTag,
-        addTagToNote,
-        removeTagFromNote,
-        undoNoteChange,
-        redoNoteChange,
-        toggleNoteSelection,
-        clearNoteSelection,
-        setDefaultNoteBackground
-      }}
-    >
+    <NotesContext.Provider value={value}>
       {children}
     </NotesContext.Provider>
   );
-};
+}
 
-export const useNotes = () => {
+export function useNotes() {
   const context = useContext(NotesContext);
   if (context === undefined) {
     throw new Error("useNotes must be used within a NotesProvider");
   }
   return context;
-};
+}
