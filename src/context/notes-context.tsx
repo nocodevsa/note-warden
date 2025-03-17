@@ -403,7 +403,7 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
         lastSyncedAt: settings.isEnabled !== undefined && settings.isEnabled !== prev.isEnabled 
           ? settings.isEnabled ? new Date().toISOString() : prev.lastSyncedAt
           : prev.lastSyncedAt,
-        syncStatus: "idle",
+        syncStatus: "idle" as const,
         lastError: null
       };
       
@@ -426,7 +426,7 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
       toast.error("Google Drive sync is not properly configured");
       setGoogleDriveSettings(prev => ({
         ...prev,
-        syncStatus: "error",
+        syncStatus: "error" as const,
         lastError: "Google Drive sync is not properly configured"
       }));
       return false;
@@ -435,7 +435,7 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
     try {
       setGoogleDriveSettings(prev => ({
         ...prev,
-        syncStatus: "syncing"
+        syncStatus: "syncing" as const
       }));
       
       await new Promise(resolve => setTimeout(resolve, 1500));
@@ -443,7 +443,7 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
       setGoogleDriveSettings(prev => ({
         ...prev,
         lastSyncedAt: new Date().toISOString(),
-        syncStatus: "success",
+        syncStatus: "success" as const,
         lastError: null
       }));
       
@@ -454,7 +454,7 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
       
       setGoogleDriveSettings(prev => ({
         ...prev,
-        syncStatus: "error",
+        syncStatus: "error" as const,
         lastError: errorMessage
       }));
       
